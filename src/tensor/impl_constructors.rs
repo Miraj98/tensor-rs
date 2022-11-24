@@ -8,8 +8,8 @@ impl<const D: usize> TensorBase<D> {
         let total_size = shape.iter().fold(1, |acc, x| acc * x);
         let mut strides = [1; D];
 
-        for i in 0..shape.len() - 1 {
-            strides[i] = shape[i + 1];
+        for i in (0..shape.len() - 1).rev() {
+            strides[i] = strides[i + 1] * shape[i + 1];
         }
 
         Self {

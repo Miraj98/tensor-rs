@@ -1,15 +1,15 @@
+pub mod impl_index;
 pub mod utils;
 
-use crate::prelude::utils::{tnsr_idx, vec_id};
-use crate::prelude::{unique_id, UniqueId};
-use num_integer::Integer;
+use crate::unique_id::{unique_id, UniqueId};
 use std::cmp::{max, min};
 use std::marker::PhantomData;
-use utils::generate_strides;
+use std::rc::Rc;
+use utils::{generate_strides, tnsr_idx, vec_id};
 
 pub struct TensorBase<const D: usize, Dtype = f32> {
     id: UniqueId,
-    data: Vec<Dtype>,
+    data: Rc<Vec<Dtype>>,
     dim: [usize; D],
     strides: [usize; D],
     stride_reps: [usize; D],
@@ -23,23 +23,12 @@ impl<const D: usize, Dtype> TensorBase<D, Dtype> {
         let strides = generate_strides(&dim);
         TensorBase {
             id: unique_id(),
-            data: a,
+            data: Rc::new(a),
             dim,
             strides,
             stride_reps: [1; D],
             marker: PhantomData,
         }
-    }
-
-    pub fn len(&self) -> usize {
-        self.dim.iter().fold(1, |acc, val| acc * *val)
-    }
-
-    pub fn unbounded_get(&self, index: [usize; D]) -> &Dtype {
-        let idx = index.iter().enumerate().fold(0, |acc, (i, val)| {
-            acc + self.strides[i] * (val % self.dim[i])
-        });
-        &self.data[idx]
     }
 
     pub fn get(&self, index: [usize; D]) -> &Dtype {
@@ -61,20 +50,7 @@ impl<const D: usize, Dtype> TensorBase<D, Dtype> {
 
         TensorBase {
             id: self.id.clone(),
-            data: a,
-            dim: self.dim.clone(),
-            strides: self.strides.clone(),
-            stride_reps: [1; D],
-            marker: PhantomData,
-        }
-    }
-
-    pub fn view_mut(&mut self) -> TensorBase<D, &mut Dtype> {
-        let a = self.data.iter_mut().collect();
-
-        TensorBase {
-            id: self.id.clone(),
-            data: a,
+            data: Rc::new(a),
             dim: self.dim.clone(),
             strides: self.strides.clone(),
             stride_reps: [1; D],
@@ -122,9 +98,7 @@ impl<const D: usize, Dtype> TensorBase<D, Dtype> {
         // Traverse all data points to generate the broadcasted view
         let new_len = extended_dims.iter().fold(1, |acc, val| acc * *val);
         let new_strides = generate_strides(&extended_dims);
-
         let mut broadcasted_data = Vec::<&Dtype>::with_capacity(new_len);
-
         for i in 0..new_len {
             let id = vec_id(tnsr_idx(i, &new_strides), &padded_dims, &padded_strides);
             broadcasted_data.push(&self.data[id]);
@@ -132,11 +106,24 @@ impl<const D: usize, Dtype> TensorBase<D, Dtype> {
 
         TensorBase {
             id: self.id.clone(),
-            data: broadcasted_data,
+            data: Rc::new(broadcasted_data),
             dim: extended_dims,
             strides: generate_strides(&extended_dims),
             marker: PhantomData,
             stride_reps,
+        }
+    }
+}
+
+impl<const D: usize, Dtype> Clone for TensorBase<D, Dtype> {
+    fn clone(&self) -> Self {
+        TensorBase {
+            id: self.id.clone(),
+            data: Rc::clone(&self.data),
+            dim: self.dim.clone(),
+            strides: self.strides.clone(),
+            stride_reps: self.stride_reps.clone(),
+            marker: self.marker,
         }
     }
 }
@@ -161,6 +148,5 @@ mod tests {
         println!("strides {:?}", a.strides);
         println!("dim {:?}", a.dim);
         println!("data {:?}", a.data);
-        // a.traverse();
     }
 }

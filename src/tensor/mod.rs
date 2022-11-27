@@ -1,5 +1,6 @@
 pub mod utils;
 
+use crate::prelude::utils::{tnsr_idx, vec_id};
 use crate::prelude::{unique_id, UniqueId};
 use num_integer::Integer;
 use std::cmp::{max, min};
@@ -17,7 +18,7 @@ pub struct TensorBase<const D: usize, Dtype = f32> {
 
 impl<const D: usize, Dtype> TensorBase<D, Dtype> {
     pub fn from_vec(a: Vec<Dtype>, dim: [usize; D]) -> TensorBase<D, Dtype> {
-        let total_len = dim.iter().fold(1, |acc, val| acc**val);
+        let total_len = dim.iter().fold(1, |acc, val| acc * *val);
         assert_eq!(total_len, a.len());
         let strides = generate_strides(&dim);
         TensorBase {
@@ -31,26 +32,7 @@ impl<const D: usize, Dtype> TensorBase<D, Dtype> {
     }
 
     pub fn len(&self) -> usize {
-        self.dim.iter().fold(1, |acc, val| acc**val)
-    }
-
-    fn traverse(&self)
-    where
-        Dtype: std::fmt::Display,
-    {
-        for i in 0..self.len() {
-            let mut idx = [0; D];
-            let mut r = i;
-            for (is, s) in self.strides.iter().enumerate() {
-                let (q, m) = r.div_rem(s);
-                idx[is] = q;
-                if m == 0 {
-                    break;
-                }
-                r = m;
-            }
-            println!("{:?} -> {}", idx, self.unbounded_get(idx));
-        }
+        self.dim.iter().fold(1, |acc, val| acc * *val)
     }
 
     pub fn unbounded_get(&self, index: [usize; D]) -> &Dtype {
@@ -100,7 +82,10 @@ impl<const D: usize, Dtype> TensorBase<D, Dtype> {
         }
     }
 
-    pub fn broadcast<const N: usize>(&self, to_dim: [usize; N]) -> TensorBase<N, &Dtype> where Dtype: std::fmt::Display {
+    pub fn broadcast<const N: usize>(&self, to_dim: [usize; N]) -> TensorBase<N, &Dtype>
+    where
+        Dtype: std::fmt::Display,
+    {
         assert!(D < N);
 
         // New dimensions
@@ -135,27 +120,13 @@ impl<const D: usize, Dtype> TensorBase<D, Dtype> {
         }
 
         // Traverse all data points to generate the broadcasted view
-        let new_len = extended_dims.iter().fold(1, |acc, val| acc**val);
+        let new_len = extended_dims.iter().fold(1, |acc, val| acc * *val);
         let new_strides = generate_strides(&extended_dims);
 
         let mut broadcasted_data = Vec::<&Dtype>::with_capacity(new_len);
 
         for i in 0..new_len {
-            // For every i create the tuple repr of the idx
-            let mut idx = [0; N];
-            let mut r = i;
-            for (is, s) in new_strides.iter().enumerate() {
-                let (q, m) = r.div_rem(s);
-                idx[is] = q;
-                if m == 0 {
-                    break;
-                }
-                r = m;
-            }
-
-            let id = idx.iter().enumerate().fold(0, |acc, (i, val)| {
-                acc + padded_strides[i] * (val % padded_dims[i])
-            });
+            let id = vec_id(tnsr_idx(i, &new_strides), &padded_dims, &padded_strides);
             broadcasted_data.push(&self.data[id]);
         }
 
@@ -175,19 +146,11 @@ mod tests {
     use super::TensorBase;
 
     #[test]
-    fn test() {
-        let a = vec![1, 2, 3, 4, 5, 6, 7, 8];
-        let t = TensorBase::from_vec(a, [2, 2, 2]);
-        t.traverse();
-    }
-
-    #[test]
     fn test2() {
         let a = vec![3, 4];
         let mut t = TensorBase::from_vec(a, [2, 1]);
         t.update_stride_reps([1, 2]);
         println!("{}", t.get([1, 2]));
-        t.traverse();
     }
 
     #[test]

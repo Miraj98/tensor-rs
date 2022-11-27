@@ -103,11 +103,13 @@ impl<const D: usize, Dtype> TensorBase<D, Dtype> {
     pub fn broadcast<const N: usize>(&self, to_dim: [usize; N]) -> TensorBase<N, &Dtype> where Dtype: std::fmt::Display {
         assert!(D < N);
 
+        // New dimensions
         let mut extended_dims = [1; N];
         self.dim
             .iter()
             .enumerate()
             .for_each(|(i, val)| extended_dims[N - D + i] = *val);
+        // Old dimensions and strides but padding the extra dims as 1
         let padded_dims = extended_dims.clone();
         let padded_strides = generate_strides(&padded_dims);
 
@@ -132,14 +134,12 @@ impl<const D: usize, Dtype> TensorBase<D, Dtype> {
             }
         }
 
-        println!("{:?} broadcasted to -> {:?}", self.dim, extended_dims);
-        println!("[DIMENSION] {:?} padded to -> {:?}", self.dim, padded_dims);
-        println!("[STRIDES] {:?} padded to -> {:?}", self.strides, padded_strides);
-
         // Traverse all data points to generate the broadcasted view
         let new_len = extended_dims.iter().fold(1, |acc, val| acc**val);
         let new_strides = generate_strides(&extended_dims);
-        println!("New data size: {}", new_len);
+
+        let mut broadcasted_data = Vec::<&Dtype>::with_capacity(new_len);
+
         for i in 0..new_len {
             // For every i create the tuple repr of the idx
             let mut idx = [0; N];
@@ -152,17 +152,16 @@ impl<const D: usize, Dtype> TensorBase<D, Dtype> {
                 }
                 r = m;
             }
-            println!("Curr idx {:?}", idx);
 
             let id = idx.iter().enumerate().fold(0, |acc, (i, val)| {
                 acc + padded_strides[i] * (val % padded_dims[i])
             });
-            let val = &self.data[id];
+            broadcasted_data.push(&self.data[id]);
         }
 
         TensorBase {
             id: self.id.clone(),
-            data: self.data.iter().collect(),
+            data: broadcasted_data,
             dim: extended_dims,
             strides: generate_strides(&extended_dims),
             marker: PhantomData,

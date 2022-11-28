@@ -2,9 +2,7 @@ pub mod impl_index;
 pub mod utils;
 pub mod ops;
 
-use crate::prelude::BackwardOps;
 use crate::unique_id::{unique_id, UniqueId};
-use std::cell::RefCell;
 use std::cmp::{max, min};
 use std::marker::PhantomData;
 use std::rc::Rc;
@@ -32,6 +30,10 @@ impl<const D: usize, Dtype> TensorBase<D, Dtype> {
             stride_reps: [1; D],
             marker: PhantomData,
         }
+    }
+
+    pub fn id(&self) -> &UniqueId {
+        &self.id
     }
 
     pub fn get(&self, index: [usize; D]) -> &Dtype {

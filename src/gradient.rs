@@ -1,4 +1,4 @@
-use crate::{unique_id::UniqueId};
+use crate::{unique_id::UniqueId, prelude::TensorBase};
 use std::{collections::HashMap, any::Any};
 
 pub struct BackwardOps<const D: usize>(Vec<Box<dyn FnOnce(&mut GradientMap)>>);
@@ -24,8 +24,13 @@ impl<const D: usize> BackwardOps<D> {
 pub struct GradientMap(pub(crate) HashMap<UniqueId, Box<dyn Any>>);
 
 impl GradientMap {
-    pub fn grad(&self) {
-        todo!()
+    pub fn grad<const D: usize, Dtype: 'static>(&self, t: TensorBase<D, Dtype>) -> &TensorBase<D, Dtype> {
+        self.0
+        .get(t.id())
+        .unwrap()
+        .as_ref()
+        .downcast_ref()
+        .unwrap()
     }
 }
 

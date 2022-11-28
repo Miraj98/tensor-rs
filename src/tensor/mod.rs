@@ -1,7 +1,10 @@
 pub mod impl_index;
 pub mod utils;
+pub mod ops;
 
+use crate::prelude::BackwardOps;
 use crate::unique_id::{unique_id, UniqueId};
+use std::cell::RefCell;
 use std::cmp::{max, min};
 use std::marker::PhantomData;
 use std::rc::Rc;

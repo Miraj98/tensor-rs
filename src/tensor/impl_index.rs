@@ -1,11 +1,11 @@
 use std::ops::{Index};
 
-use super::TensorBase;
+use super::{TensorBase, dim::Dimension};
 
-impl<const D: usize, Dtype> Index<[usize; D]> for TensorBase<D, Dtype> {
+impl<S: Dimension, Dtype> Index<S> for TensorBase<S, Dtype> {
     type Output = Dtype;
-    fn index(&self, index: [usize; D]) -> &Self::Output {
-        let idx = index.iter().enumerate().fold(0, |acc, (i, val)| {
+    fn index(&self, index: S) -> &Self::Output {
+        let idx = index.get_iter().enumerate().fold(0, |acc, (i, val)| {
             if *val >= self.dim[i] * self.stride_reps[i] {
                 panic!("Out of bound index")
             }

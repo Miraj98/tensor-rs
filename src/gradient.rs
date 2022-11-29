@@ -1,9 +1,9 @@
 use crate::{unique_id::UniqueId, prelude::TensorBase};
 use std::{collections::HashMap, any::Any};
 
-pub struct BackwardOps<const D: usize>(Vec<Box<dyn FnOnce(&mut GradientMap)>>);
+pub struct BackwardOps(pub(crate) Vec<Box<dyn FnOnce(&mut GradientMap)>>);
 
-impl<const D: usize> BackwardOps<D> {
+impl BackwardOps {
     pub(crate) fn add_backward_op<F: 'static + FnOnce(&mut GradientMap)>(&mut self, operation: F) {
         self.0.push(Box::new(operation));
     }
@@ -24,7 +24,7 @@ impl<const D: usize> BackwardOps<D> {
 pub struct GradientMap(pub(crate) HashMap<UniqueId, Box<dyn Any>>);
 
 impl GradientMap {
-    pub fn grad<const D: usize, Dtype: 'static>(&self, t: TensorBase<D, Dtype>) -> &TensorBase<D, Dtype> {
+    pub fn grad<const D: usize, Dtype: 'static>(&self, t: &TensorBase<D, Dtype>) -> &TensorBase<D, Dtype> {
         self.0
         .get(t.id())
         .unwrap()

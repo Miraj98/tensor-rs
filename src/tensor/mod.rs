@@ -2,6 +2,7 @@ pub mod impl_index;
 pub mod utils;
 pub mod ops;
 
+use crate::prelude::BackwardOps;
 use crate::unique_id::{unique_id, UniqueId};
 use std::cmp::{max, min};
 use std::marker::PhantomData;
@@ -15,6 +16,9 @@ pub struct TensorBase<const D: usize, Dtype = f32> {
     strides: [usize; D],
     stride_reps: [usize; D],
     marker: PhantomData<Dtype>,
+    backward_ops: Option<BackwardOps>,
+    is_leaf: bool,
+    requires_grad: bool,
 }
 
 impl<const D: usize, Dtype> TensorBase<D, Dtype> {
@@ -29,7 +33,31 @@ impl<const D: usize, Dtype> TensorBase<D, Dtype> {
             strides,
             stride_reps: [1; D],
             marker: PhantomData,
+            is_leaf: true,
+            requires_grad: false,
+            backward_ops: None,
         }
+    }
+
+    pub fn requires_grad(mut self) -> Self {
+        self.requires_grad = true;
+        if self.is_leaf && self.backward_ops.is_none() {
+            self.backward_ops = Some(BackwardOps(Vec::new()));
+        }
+
+        self
+    }
+
+    pub fn dim(&self) -> [usize; D] {
+        self.dim.clone()
+    }
+
+    pub fn ndim(&self) -> usize {
+        D
+    }
+
+    pub fn strides(&self) -> [usize; D] {
+        self.strides.clone()
     }
 
     pub fn id(&self) -> &UniqueId {
@@ -60,10 +88,13 @@ impl<const D: usize, Dtype> TensorBase<D, Dtype> {
             strides: self.strides.clone(),
             stride_reps: [1; D],
             marker: PhantomData,
+            is_leaf: self.is_leaf,
+            requires_grad: false,
+            backward_ops: None,
         }
     }
 
-    pub fn broadcast<const N: usize>(&self, to_dim: [usize; N]) -> TensorBase<N, &Dtype>
+    pub fn broadcast<const N: usize>(&mut self, to_dim: [usize; N]) -> TensorBase<N, &Dtype>
     where
         Dtype: std::fmt::Display,
     {
@@ -116,6 +147,9 @@ impl<const D: usize, Dtype> TensorBase<D, Dtype> {
             strides: generate_strides(&extended_dims),
             marker: PhantomData,
             stride_reps,
+            is_leaf: false,
+            requires_grad: self.requires_grad,
+            backward_ops: self.backward_ops.take(), // TODO: Not sure about this right now
         }
     }
 }
@@ -129,6 +163,9 @@ impl<const D: usize, Dtype> Clone for TensorBase<D, Dtype> {
             strides: self.strides.clone(),
             stride_reps: self.stride_reps.clone(),
             marker: self.marker,
+            is_leaf: self.is_leaf,
+            requires_grad: self.requires_grad,
+            backward_ops: None,
         }
     }
 }
@@ -148,7 +185,7 @@ mod tests {
     #[test]
     fn broadcast_test() {
         let a = vec![3, 4];
-        let t = TensorBase::from_vec(a, [2, 1]);
+        let mut t = TensorBase::from_vec(a, [2, 1]);
         let a = t.broadcast([3, 1, 5]);
         println!("strides {:?}", a.strides);
         println!("dim {:?}", a.dim);

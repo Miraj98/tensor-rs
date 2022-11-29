@@ -1,7 +1,7 @@
-pub mod impl_index;
-pub mod utils;
-pub mod ops;
 pub mod dim;
+pub mod impl_index;
+pub mod ops;
+pub mod utils;
 
 use crate::prelude::BackwardOps;
 use crate::unique_id::{unique_id, UniqueId};
@@ -15,7 +15,10 @@ use utils::{generate_strides, tnsr_idx, vec_id};
 use self::dim::Dimension;
 
 #[derive(Debug)]
-pub struct TensorBase<S, Dtype = f32> where S: Dimension {
+pub struct TensorBase<S, Dtype = f32>
+where
+    S: Dimension,
+{
     id: UniqueId,
     data: Rc<Vec<Dtype>>,
     dim: S,
@@ -27,7 +30,10 @@ pub struct TensorBase<S, Dtype = f32> where S: Dimension {
     requires_grad: bool,
 }
 
-impl<S, Dtype> TensorBase<S, Dtype> where S: Dimension {
+impl<S, Dtype> TensorBase<S, Dtype>
+where
+    S: Dimension,
+{
     pub fn from_vec(a: Vec<Dtype>, dim: S) -> TensorBase<S, Dtype> {
         let total_len = dim.get_iter().fold(1, |acc, val| acc * *val);
         assert_eq!(total_len, a.len());
@@ -60,6 +66,10 @@ impl<S, Dtype> TensorBase<S, Dtype> where S: Dimension {
 
     pub fn ndim(&self) -> usize {
         self.dim.ndim()
+    }
+
+    pub fn shape(&self) -> &[usize] {
+        self.dim.slice()
     }
 
     pub fn strides(&self) -> S {
@@ -110,15 +120,15 @@ impl<S, Dtype> TensorBase<S, Dtype> where S: Dimension {
         Dtype: std::fmt::Display,
     {
         assert!(self.dim.ndim() < to_dim.ndim());
-        let D = self.ndim();
-        let N = to_dim.ndim();
+        let num_l = self.ndim();
+        let num_r = to_dim.ndim();
 
         // New dimensions
         let mut extended_dims = K::ones();
         self.dim
             .get_iter()
             .enumerate()
-            .for_each(|(i, val)| extended_dims[N - D + i] = *val);
+            .for_each(|(i, val)| extended_dims[num_r - num_l + i] = *val);
         // Old dimensions and strides but padding the extra dims as 1
         let padded_dims = extended_dims.clone();
         let padded_strides = generate_strides(&padded_dims);
@@ -127,20 +137,21 @@ impl<S, Dtype> TensorBase<S, Dtype> where S: Dimension {
         self.stride_reps
             .get_iter()
             .enumerate()
-            .for_each(|(i, val)| stride_reps[N - D + i] = *val);
+            .for_each(|(i, val)| stride_reps[num_r - num_l + i] = *val);
 
-        for i in 0..N {
-            if extended_dims[N - 1 - i] != to_dim[N - 1 - i] {
-                if min(to_dim[N - 1 - i], extended_dims[N - 1 - i]) == 1 {
-                    extended_dims[N - 1 - i] = max(to_dim[N - 1 - i], extended_dims[N - 1 - i]);
-                    if extended_dims[N - 1 - i] == 1 {
-                        stride_reps[N - 1 - i] *= extended_dims[N - 1 - i]
+        for i in 0..num_r {
+            if extended_dims[num_r - 1 - i] != to_dim[num_r - 1 - i] {
+                if min(to_dim[num_r - 1 - i], extended_dims[num_r - 1 - i]) == 1 {
+                    extended_dims[num_r - 1 - i] =
+                        max(to_dim[num_r - 1 - i], extended_dims[num_r - 1 - i]);
+                    if extended_dims[num_r - 1 - i] == 1 {
+                        stride_reps[num_r - 1 - i] *= extended_dims[num_r - 1 - i]
                     }
                 } else {
                     panic!("Incompatible for broadcasting");
                 }
             } else {
-                extended_dims[N - 1 - i] = extended_dims[N - 1 - i];
+                extended_dims[num_r - 1 - i] = extended_dims[num_r - 1 - i];
             }
         }
 

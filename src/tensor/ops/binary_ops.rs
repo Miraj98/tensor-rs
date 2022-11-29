@@ -12,7 +12,8 @@ where
     type Output = TensorBase<<L as DimMax<R>>::Output, Dtype>;
 
     fn add(self, rhs: &TensorBase<R, Dtype>) -> Self::Output {
-        // self.di
+        if self.shape() == rhs.shape() {
+        }
         todo!()
     }
 }

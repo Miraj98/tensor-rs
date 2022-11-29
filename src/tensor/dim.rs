@@ -22,6 +22,7 @@ pub trait Dimension:
     const NDIM: usize;
 
     fn ndim(&self) -> usize;
+    fn slice(&self) -> &[usize];
     fn get_iter(&self) -> Iter<'_, usize>;
     fn ones() -> Self;
     fn zeros() -> Self;
@@ -32,6 +33,10 @@ impl<const D: usize> Dimension for [usize; D] {
 
     fn ndim(&self) -> usize {
         D
+    }
+
+    fn slice(&self) -> &[usize] {
+        &self[..]
     }
 
     fn get_iter(&self) -> Iter<'_, usize> {

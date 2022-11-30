@@ -1,5 +1,7 @@
 use std::{ops::{Index, IndexMut}, slice::Iter, fmt::Debug};
 
+use super::utils::unlimited_transmute;
+
 pub type Ix = usize;
 pub type Ix0 = [Ix; 0];
 pub type Ix1 = [Ix; 1];
@@ -8,6 +10,7 @@ pub type Ix3 = [Ix; 3];
 pub type Ix4 = [Ix; 4];
 pub type Ix5 = [Ix; 5];
 pub type Ix6 = [Ix; 6];
+pub type DimMaxOf<A, B> = <A as DimMax<B>>::Output;
 
 pub trait DimMax<S>
 where
@@ -23,6 +26,7 @@ pub trait Dimension:
 
     fn ndim(&self) -> usize;
     fn slice(&self) -> &[usize];
+    fn into_dimensionality<D2>(&self) -> D2 where D2: Dimension;
     fn get_iter(&self) -> Iter<'_, usize>;
     fn ones() -> Self;
     fn zeros() -> Self;
@@ -39,6 +43,10 @@ impl<const D: usize> Dimension for [usize; D] {
         &self[..]
     }
 
+    fn into_dimensionality<D2>(&self) -> D2 where D2: Dimension {
+       unsafe { unlimited_transmute::<Self, D2>(self.clone()) }
+    }
+
     fn get_iter(&self) -> Iter<'_, usize> {
         self.iter()
     }
@@ -50,6 +58,10 @@ impl<const D: usize> Dimension for [usize; D] {
     fn zeros() -> Self {
         [0; D]
     }
+}
+
+impl<D> DimMax<D> for D where D: Dimension {
+    type Output = D;
 }
 
 macro_rules! impl_broadcast_distinct_fixed {

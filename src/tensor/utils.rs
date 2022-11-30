@@ -1,5 +1,5 @@
+use std::mem::{size_of, ManuallyDrop};
 use num_integer::Integer;
-
 use super::dim::Dimension;
 
 pub fn generate_strides<S>(dim: &S) -> S where S: Dimension {
@@ -34,4 +34,11 @@ pub fn vec_id<S>(
     });
 
     id
+}
+
+pub unsafe fn unlimited_transmute<A, B>(data: A) -> B {
+    // safe when sizes are equal and caller guarantees that representations are equal
+    assert_eq!(size_of::<A>(), size_of::<B>());
+    let old_data = ManuallyDrop::new(data);
+    (&*old_data as *const A as *const B).read()
 }

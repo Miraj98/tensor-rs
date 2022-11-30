@@ -68,6 +68,10 @@ where
         self.dim.ndim()
     }
 
+    pub fn len(&self) -> usize {
+        self.dim.get_iter().fold(1, |acc, val| acc * *val)
+    }
+
     pub fn shape(&self) -> &[usize] {
         self.dim.slice()
     }
@@ -114,12 +118,11 @@ where
         }
     }
 
-    pub fn broadcast<K>(&mut self, to_dim: K) -> TensorBase<K, &Dtype>
+    pub fn broadcast<K>(&self, to_dim: K) -> TensorBase<K, &Dtype>
     where
         K: Dimension,
-        Dtype: std::fmt::Display,
     {
-        assert!(self.dim.ndim() < to_dim.ndim());
+        assert!(self.dim.ndim() <= to_dim.ndim());
         let num_l = self.ndim();
         let num_r = to_dim.ndim();
 
@@ -209,7 +212,7 @@ mod tests {
     #[test]
     fn broadcast_test() {
         let a = vec![3, 4];
-        let mut t = TensorBase::from_vec(a, [2, 1]);
+        let t = TensorBase::from_vec(a, [2, 1]);
         let a = t.broadcast([3, 1, 5]);
         println!("strides {:?}", a.strides);
         println!("dim {:?}", a.dim);

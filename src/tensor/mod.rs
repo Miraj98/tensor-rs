@@ -2,7 +2,9 @@ pub mod dim;
 pub mod impl_index;
 pub mod ops;
 pub mod utils;
+pub mod impl_constructors;
 
+use crate::num_taits::Zero;
 use crate::prelude::BackwardOps;
 use crate::unique_id::{unique_id, UniqueId};
 use std::cell::RefCell;
@@ -11,7 +13,6 @@ use std::marker::PhantomData;
 use std::rc::Rc;
 use std::usize;
 use utils::{generate_strides, tnsr_idx, vec_id};
-
 use self::dim::Dimension;
 
 #[derive(Debug)]
@@ -175,6 +176,7 @@ where
         }
     }
 }
+
 
 impl<const D: usize, Dtype> Clone for TensorBase<[usize; D], Dtype> {
     fn clone(&self) -> Self {

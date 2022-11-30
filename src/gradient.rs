@@ -1,4 +1,4 @@
-use crate::{prelude::TensorBase, unique_id::UniqueId};
+use crate::{prelude::{TensorBase, dim::Dimension, HasUniqueId, impl_constructors::TensorConstructors}, unique_id::UniqueId, num_taits::{One, Zero}};
 use std::{any::Any, collections::HashMap, fmt::Debug};
 
 pub struct BackwardOps(pub(crate) Vec<Box<dyn FnOnce(&mut GradientMap)>>);
@@ -51,10 +51,15 @@ impl Merge for Option<BackwardOps> {
 pub struct GradientMap(pub(crate) HashMap<UniqueId, Box<dyn Any>>);
 
 impl GradientMap {
-    pub fn grad<const D: usize, Dtype: 'static>(
+    pub fn grad<T>(
         &self,
-        t: &TensorBase<[usize; D], Dtype>,
-    ) -> &TensorBase<[usize; D], Dtype> {
+        t: &T
+    ) -> &T where T: HasUniqueId + TensorConstructors + 'static {
         self.0.get(t.id()).unwrap().as_ref().downcast_ref().unwrap()
+    }
+
+    pub fn mut_grad<T>(&mut self, t: &T) -> &T where T: HasUniqueId + 'static {
+        todo!()
+        // self.0.entry(*t.id()).or_insert_with(|| Box::new(T::on))
     }
 }

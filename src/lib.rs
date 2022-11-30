@@ -1,6 +1,7 @@
 pub mod gradient;
 pub mod unique_id;
 pub mod tensor;
+pub mod num_taits;
 
 pub mod prelude {
     pub use crate::tensor::*;

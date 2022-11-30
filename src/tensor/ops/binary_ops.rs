@@ -1,15 +1,20 @@
 use std::iter::zip;
 
-use crate::prelude::{
-    dim::{DimMax, Dimension, DimMaxOf},
-    TensorBase, utils::merge_backward_ops,
+use crate::{
+    num_taits::{One, Zero},
+    prelude::{
+        dim::{DimMax, DimMaxOf, Dimension},
+        utils::merge_backward_ops,
+        TensorBase,
+    },
 };
 
 impl<'a, L, R, Dtype> std::ops::Add<&'a TensorBase<R, Dtype>> for &'a TensorBase<L, Dtype>
 where
     R: Dimension,
     L: DimMax<R> + Dimension,
-    &'a Dtype: std::ops::Add<&'a Dtype, Output = Dtype>
+    Dtype: One + Zero,
+    &'a Dtype: std::ops::Add<&'a Dtype, Output = Dtype>,
 {
     type Output = TensorBase<DimMaxOf<L, R>, Dtype>;
 
@@ -30,7 +35,7 @@ where
         } else {
             let v1: TensorBase<DimMaxOf<L, R>, &Dtype>;
             let v2: TensorBase<DimMaxOf<L, R>, &Dtype>;
-            let dim: DimMaxOf<L, R>; 
+            let dim: DimMaxOf<L, R>;
             if self.ndim() >= rhs.ndim() {
                 dim = self.dim().into_dimensionality::<DimMaxOf<L, R>>();
             } else {

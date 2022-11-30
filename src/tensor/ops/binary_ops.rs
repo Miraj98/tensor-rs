@@ -2,7 +2,7 @@ use std::iter::zip;
 
 use crate::prelude::{
     dim::{DimMax, Dimension, DimMaxOf},
-    TensorBase,
+    TensorBase, utils::merge_backward_ops,
 };
 
 impl<'a, L, R, Dtype> std::ops::Add<&'a TensorBase<R, Dtype>> for &'a TensorBase<L, Dtype>
@@ -20,7 +20,13 @@ where
                 a.push(l + r);
             }
             let dim = self.dim.into_dimensionality::<DimMaxOf<L, R>>();
-            TensorBase::from_vec(a, dim)
+            let mut backops = merge_backward_ops(self, rhs);
+            if backops.is_some() {
+                // let b_ops = backops.as_mut().unwrap().add_backward_op(|grads| {
+
+                // })
+            }
+            TensorBase::from_vec(a, dim).with_backops(backops)
         } else {
             let v1: TensorBase<DimMaxOf<L, R>, &Dtype>;
             let v2: TensorBase<DimMaxOf<L, R>, &Dtype>;
@@ -38,7 +44,8 @@ where
                 a.push(*l + *r);
             }
 
-            TensorBase::from_vec(a, dim)
+            let backops = merge_backward_ops(self, rhs);
+            TensorBase::from_vec(a, dim).with_backops(backops)
         }
     }
 }

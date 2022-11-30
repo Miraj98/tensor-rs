@@ -60,6 +60,11 @@ where
         self
     }
 
+    pub fn with_backops(self, backops: Option<BackwardOps>) -> Self {
+        *self.backward_ops.borrow_mut() = backops;
+        self
+    }
+
     pub fn dim(&self) -> S {
         self.dim.clone()
     }
@@ -84,9 +89,8 @@ where
         &self.id
     }
 
-    pub(crate) fn detach_backward_ops(self) -> (Self, Option<BackwardOps>) {
-        let ops = self.backward_ops.borrow_mut().take();
-        (self, ops)
+    pub(crate) fn detach_backward_ops(&self) -> Option<BackwardOps> {
+        self.backward_ops.borrow_mut().take()
     }
 
     pub fn update_stride_reps(&mut self, a: S) {
@@ -216,7 +220,7 @@ mod tests {
         let a = vec![3, 4];
         let t = TensorBase::from_vec(a, [2, 1]).requires_grad(true);
         assert!(t.backward_ops.borrow().is_some());
-        let (t, ops) = t.detach_backward_ops();
+        let ops = t.detach_backward_ops();
         assert!(t.backward_ops.borrow().is_none());
         assert!(ops.is_some());
         assert!(ops.unwrap().0.len() == 0);

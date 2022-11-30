@@ -51,15 +51,15 @@ pub unsafe fn unlimited_transmute<A, B>(data: A) -> B {
 }
 
 pub fn merge_backward_ops<L, R, Dtype>(
-    lhs: TensorBase<L, Dtype>,
-    rhs: TensorBase<R, Dtype>,
-) -> (TensorBase<L, Dtype>, TensorBase<R, Dtype>, Option<BackwardOps>)
+    lhs: &TensorBase<L, Dtype>,
+    rhs: &TensorBase<R, Dtype>,
+) -> Option<BackwardOps>
 where
     L: Dimension,
     R: Dimension,
 {
-    let (lhs, lhs_ops) = lhs.detach_backward_ops();
-    let (rhs, rhs_ops) = rhs.detach_backward_ops();
+    let lhs_ops = lhs.detach_backward_ops();
+    let rhs_ops = rhs.detach_backward_ops();
     let merged = lhs_ops.merge(rhs_ops);
-    (lhs, rhs, merged)
+    merged
 }

@@ -1,11 +1,17 @@
-use crate::{unique_id::UniqueId, prelude::{TensorBase}};
-use std::{collections::HashMap, any::Any, fmt::Debug};
+use crate::{prelude::TensorBase, unique_id::UniqueId};
+use std::{any::Any, collections::HashMap, fmt::Debug};
 
 pub struct BackwardOps(pub(crate) Vec<Box<dyn FnOnce(&mut GradientMap)>>);
 
+pub trait Merge {
+    fn merge(self, other: Self) -> Self;
+}
+
 impl Debug for BackwardOps {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("BackwardOps").field("num_operations", &self.0.len()).finish()
+        f.debug_struct("BackwardOps")
+            .field("num_operations", &self.0.len())
+            .finish()
     }
 }
 
@@ -27,16 +33,28 @@ impl BackwardOps {
     }
 }
 
-pub struct GradientMap(pub(crate) HashMap<UniqueId, Box<dyn Any>>);
-
-impl GradientMap {
-    pub fn grad<const D: usize, Dtype: 'static>(&self, t: &TensorBase<[usize; D], Dtype>) -> &TensorBase<[usize; D], Dtype> {
-        self.0
-        .get(t.id())
-        .unwrap()
-        .as_ref()
-        .downcast_ref()
-        .unwrap()
+impl Merge for Option<BackwardOps> {
+    fn merge(mut self, mut other: Self) -> Self {
+        if self.is_none() && other.is_none() {
+            Some(BackwardOps(Vec::new()))
+        } else if self.is_some() && other.is_none() {
+            self
+        } else if self.is_none() && other.is_some() {
+            other
+        } else {
+            self.as_mut().unwrap().append(other.as_mut().unwrap());
+            self
+        }
     }
 }
 
+pub struct GradientMap(pub(crate) HashMap<UniqueId, Box<dyn Any>>);
+
+impl GradientMap {
+    pub fn grad<const D: usize, Dtype: 'static>(
+        &self,
+        t: &TensorBase<[usize; D], Dtype>,
+    ) -> &TensorBase<[usize; D], Dtype> {
+        self.0.get(t.id()).unwrap().as_ref().downcast_ref().unwrap()
+    }
+}

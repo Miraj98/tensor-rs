@@ -51,9 +51,9 @@ where
         }
     }
 
-    pub fn requires_grad(mut self) -> Self {
-        self.requires_grad = true;
-        if self.is_leaf && self.backward_ops.borrow().is_none() {
+    pub fn requires_grad(mut self, b: bool) -> Self {
+        self.requires_grad = b;
+        if b && self.is_leaf && self.backward_ops.borrow().is_none() {
             *self.backward_ops.borrow_mut() = Some(BackwardOps(Vec::new()));
         }
 
@@ -84,19 +84,10 @@ where
         &self.id
     }
 
-    pub(crate) fn take_backward_ops(&self) -> Option<BackwardOps> {
-        self.backward_ops.borrow_mut().take()
+    pub(crate) fn detach_backward_ops(self) -> (Self, Option<BackwardOps>) {
+        let ops = self.backward_ops.borrow_mut().take();
+        (self, ops)
     }
-
-    // pub fn get(&self, index: [usize; D]) -> &Dtype {
-    //     let idx = index.iter().enumerate().fold(0, |acc, (i, val)| {
-    //         if *val >= self.dim[i] * self.stride_reps[i] {
-    //             panic!("Out of bound index")
-    //         }
-    //         acc + self.strides[i] * (val % self.dim[i])
-    //     });
-    //     &self.data[idx]
-    // }
 
     pub fn update_stride_reps(&mut self, a: S) {
         self.stride_reps = a;
@@ -200,22 +191,34 @@ impl<const D: usize, Dtype> Clone for TensorBase<[usize; D], Dtype> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test2() {
-        let a = vec![3, 4];
-        let mut t = TensorBase::from_vec(a, [2, 1]);
-        t.update_stride_reps([1, 2]);
-        println!("{}", t[[1, 0]]);
-    }
+    use std::iter::zip;
 
     #[test]
     fn broadcast_test() {
         let a = vec![3, 4];
         let t = TensorBase::from_vec(a, [2, 1]);
         let a = t.broadcast([3, 1, 5]);
-        println!("strides {:?}", a.strides);
-        println!("dim {:?}", a.dim);
-        println!("data {:?}", a.data);
+
+        assert_eq!(a.strides, [10, 5, 1]);
+        assert_eq!(a.dim, [3, 2, 5]);
+        let expected_out = vec![
+            3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 4, 4, 4, 4,
+            4,
+        ];
+
+        for (eo, ao) in zip(expected_out.iter(), a.data.iter()) {
+            assert_eq!(eo, *ao);
+        }
+    }
+
+    #[test]
+    fn test_backward_ops_take() {
+        let a = vec![3, 4];
+        let t = TensorBase::from_vec(a, [2, 1]).requires_grad(true);
+        assert!(t.backward_ops.borrow().is_some());
+        let (t, ops) = t.detach_backward_ops();
+        assert!(t.backward_ops.borrow().is_none());
+        assert!(ops.is_some());
+        assert!(ops.unwrap().0.len() == 0);
     }
 }

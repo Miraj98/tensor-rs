@@ -1,71 +1,81 @@
 pub mod dim;
+pub mod impl_constructors;
 pub mod impl_index;
 pub mod ops;
 pub mod utils;
-pub mod impl_constructors;
 
-use crate::num_taits::Zero;
+use self::dim::Dimension;
+use self::utils::unlimited_transmute;
 use crate::prelude::BackwardOps;
 use crate::unique_id::{unique_id, UniqueId};
 use std::cell::RefCell;
 use std::cmp::{max, min};
-use std::marker::PhantomData;
+use std::ops::Deref;
 use std::rc::Rc;
 use std::usize;
 use utils::{generate_strides, tnsr_idx, vec_id};
-use self::dim::Dimension;
 
 #[derive(Debug)]
-pub struct TensorBase<S, Dtype = f32>
+pub struct OwnedData<Dtype> {
+    data: Rc<Vec<Dtype>>,
+}
+
+impl<Dtype> Deref for OwnedData<Dtype> {
+    type Target = Rc<Vec<Dtype>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.data
+    }
+}
+
+impl<Dtype> Clone for OwnedData<Dtype> {
+    fn clone(&self) -> Self {
+        Self {
+            data: Rc::clone(&self.data),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct ViewData<'a, Dtype> {
+    data: Rc<Vec<&'a Dtype>>,
+}
+
+impl<'a, Dtype> Deref for ViewData<'a, Dtype> {
+    type Target = Rc<Vec<&'a Dtype>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.data
+    }
+}
+
+impl<'a, Dtype> Clone for ViewData<'a, Dtype> {
+    fn clone(&self) -> Self {
+        Self {
+            data: Rc::clone(&self.data),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct TensorBase<S, A>
 where
     S: Dimension,
 {
     id: UniqueId,
-    data: Rc<Vec<Dtype>>,
+    data: A,
     dim: S,
     strides: S,
     stride_reps: S,
-    marker: PhantomData<Dtype>,
     backward_ops: RefCell<Option<BackwardOps>>,
     is_leaf: bool,
     requires_grad: bool,
 }
 
-impl<S, Dtype> TensorBase<S, Dtype>
+impl<S, A> TensorBase<S, A>
 where
     S: Dimension,
 {
-    pub fn from_vec(a: Vec<Dtype>, dim: S) -> TensorBase<S, Dtype> {
-        let total_len = dim.get_iter().fold(1, |acc, val| acc * *val);
-        assert_eq!(total_len, a.len());
-        let strides = generate_strides(&dim);
-        TensorBase {
-            id: unique_id(),
-            data: Rc::new(a),
-            dim,
-            strides,
-            stride_reps: S::ones(),
-            marker: PhantomData,
-            is_leaf: true,
-            requires_grad: false,
-            backward_ops: RefCell::new(None),
-        }
-    }
-
-    pub fn requires_grad(mut self, b: bool) -> Self {
-        self.requires_grad = b;
-        if b && self.is_leaf && self.backward_ops.borrow().is_none() {
-            *self.backward_ops.borrow_mut() = Some(BackwardOps(Vec::new()));
-        }
-
-        self
-    }
-
-    pub fn with_backops(self, backops: Option<BackwardOps>) -> Self {
-        *self.backward_ops.borrow_mut() = backops;
-        self
-    }
-
     pub fn dim(&self) -> S {
         self.dim.clone()
     }
@@ -90,31 +100,76 @@ where
         &self.id
     }
 
+    pub fn into_dimensionality<D2: Dimension>(&self) -> &TensorBase<D2, A> {
+        unsafe { unlimited_transmute(self) }
+    }
+}
+
+impl<S, Dtype> TensorBase<S, OwnedData<Dtype>>
+where
+    S: Dimension,
+{
+    pub fn from_vec(a: Vec<Dtype>, dim: S) -> TensorBase<S, OwnedData<Dtype>> {
+        let total_len = dim.get_iter().fold(1, |acc, val| acc * *val);
+        assert_eq!(total_len, a.len());
+        let strides = generate_strides(&dim);
+        TensorBase {
+            id: unique_id(),
+            data: OwnedData { data: Rc::new(a) },
+            dim,
+            strides,
+            stride_reps: S::ones(),
+            is_leaf: true,
+            requires_grad: false,
+            backward_ops: RefCell::new(None),
+        }
+    }
+
+    pub fn requires_grad(mut self, b: bool) -> Self {
+        self.requires_grad = b;
+        if b && self.is_leaf && self.backward_ops.borrow().is_none() {
+            *self.backward_ops.borrow_mut() = Some(BackwardOps(Vec::new()));
+        }
+
+        self
+    }
+
+    pub fn with_backops(self, backops: Option<BackwardOps>) -> Self {
+        *self.backward_ops.borrow_mut() = backops;
+        self
+    }
+
     pub(crate) fn detach_backward_ops(&self) -> Option<BackwardOps> {
         self.backward_ops.borrow_mut().take()
+    }
+
+    pub(crate) fn put_backward_ops(&self, backops: Option<BackwardOps>) {
+        *self.backward_ops.borrow_mut() = backops;
     }
 
     pub fn update_stride_reps(&mut self, a: S) {
         self.stride_reps = a;
     }
 
-    pub fn view(&self) -> TensorBase<S, &Dtype> {
+    pub fn view(&self) -> TensorBase<S, ViewData<'_, Dtype>> {
         let a = self.data.iter().collect();
+        let view_data = ViewData { data: Rc::new(a) };
 
         TensorBase {
             id: self.id.clone(),
-            data: Rc::new(a),
+            data: view_data,
             dim: self.dim.clone(),
             strides: self.strides.clone(),
             stride_reps: S::ones(),
-            marker: PhantomData,
             is_leaf: self.is_leaf,
             requires_grad: false,
             backward_ops: RefCell::new(None),
         }
     }
 
-    pub fn broadcast<K>(&self, to_dim: K) -> TensorBase<K, &Dtype>
+
+
+    pub fn broadcast<K>(&self, to_dim: K) -> TensorBase<K, ViewData<Dtype>>
     where
         K: Dimension,
     {
@@ -165,10 +220,11 @@ where
 
         TensorBase {
             id: self.id.clone(),
-            data: Rc::new(broadcasted_data),
+            data: ViewData {
+                data: Rc::new(broadcasted_data),
+            },
             dim: extended_dims.clone(),
             strides: generate_strides(&extended_dims),
-            marker: PhantomData,
             stride_reps,
             is_leaf: false,
             requires_grad: self.requires_grad,
@@ -177,22 +233,27 @@ where
     }
 }
 
-
-impl<const D: usize, Dtype> Clone for TensorBase<[usize; D], Dtype> {
+impl<S, A> Clone for TensorBase<S, A>
+where
+    S: Dimension,
+    A: Clone,
+{
     fn clone(&self) -> Self {
         TensorBase {
             id: self.id.clone(),
-            data: Rc::clone(&self.data),
+            data: self.data.clone(),
             dim: self.dim.clone(),
             strides: self.strides.clone(),
             stride_reps: self.stride_reps.clone(),
-            marker: self.marker,
             is_leaf: self.is_leaf,
             requires_grad: self.requires_grad,
             backward_ops: RefCell::new(None),
         }
     }
 }
+
+pub type Tensor<S, A> = TensorBase<S, OwnedData<A>>;
+pub type TensorView<'a, S, A> = TensorBase<S, ViewData<'a, A>>;
 
 #[cfg(test)]
 mod tests {

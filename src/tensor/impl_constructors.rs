@@ -1,6 +1,6 @@
 use crate::num_taits::{One, Zero};
 
-use super::{dim::Dimension, TensorBase};
+use super::{dim::Dimension, TensorBase, Tensor};
 
 pub trait TensorConstructors {
     type S: Dimension;
@@ -8,7 +8,7 @@ pub trait TensorConstructors {
     fn zeros(dim: Self::S) -> Self;
 }
 
-impl<S, Dtype> TensorConstructors for TensorBase<S, Dtype>
+impl<S, Dtype> TensorConstructors for Tensor<S, Dtype>
 where
     S: Dimension,
     Dtype: One + Zero,

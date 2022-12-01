@@ -1,6 +1,6 @@
 use crate::{
     num_taits::{One, Zero},
-    prelude::{dim::Dimension, impl_constructors::TensorConstructors, HasUniqueId, TensorBase},
+    prelude::{dim::Dimension, impl_constructors::TensorConstructors, Tensor},
     unique_id::UniqueId,
 };
 use std::{any::Any, collections::HashMap, fmt::Debug};
@@ -55,23 +55,92 @@ impl Merge for Option<BackwardOps> {
 pub struct GradientMap(pub(crate) HashMap<UniqueId, Box<dyn Any>>);
 
 impl GradientMap {
-    pub fn grad<T>(&self, t: &T) -> &T
+    pub fn grad<S, Dtype>(&self, t: &Tensor<S, Dtype>) -> &Tensor<S, Dtype>
     where
-        T: HasUniqueId + 'static,
+        S: Dimension + 'static,
+        Dtype: Zero + One + 'static,
     {
         self.0.get(t.id()).unwrap().as_ref().downcast_ref().unwrap()
     }
 
-    pub fn mut_grad<S, Dtype>(&mut self, t: &TensorBase<S, Dtype>) -> &mut TensorBase<S, Dtype>
+    pub fn grad_by_id<S, Dtype>(&self, t: UniqueId) -> &Tensor<S, Dtype>
+    where
+        S: Dimension + 'static,
+        Dtype: Zero + One + 'static,
+    {
+        self.0.get(&t).unwrap().as_ref().downcast_ref().unwrap()
+    }
+
+    pub fn mut_grad<S, Dtype>(&mut self, t: &Tensor<S, Dtype>) -> &mut Tensor<S, Dtype>
     where
         S: Dimension + 'static,
         Dtype: Zero + One + 'static,
     {
         self.0
             .entry(*t.id())
-            .or_insert_with(|| Box::new(TensorBase::<_, Dtype>::ones(t.dim())))
+            .or_insert_with(|| Box::new(Tensor::<_, Dtype>::zeros(t.dim())))
             .as_mut()
             .downcast_mut()
             .unwrap()
+    }
+
+    pub fn mut_grad_by_id_with_ones<S, Dtype>(&mut self, t: UniqueId, dim: S) -> &mut Tensor<S, Dtype>
+    where
+        S: Dimension + 'static,
+        Dtype: Zero + One + 'static,
+    {
+        self.0
+            .entry(t)
+            .or_insert_with(|| Box::new(Tensor::<_, Dtype>::ones(dim)))
+            .as_mut()
+            .downcast_mut()
+            .unwrap()
+    }
+
+    pub fn mut_grad_by_id<S, Dtype>(&mut self, t: UniqueId, dim: S) -> &mut Tensor<S, Dtype>
+    where
+        S: Dimension + 'static,
+        Dtype: Zero + One + 'static,
+    {
+        self.0
+            .entry(t)
+            .or_insert_with(|| Box::new(Tensor::<_, Dtype>::zeros(dim)))
+            .as_mut()
+            .downcast_mut()
+            .unwrap()
+    }
+
+    pub fn mr_grad<S, Dtype>(
+        &mut self,
+        l1: &Tensor<S, Dtype>,
+        l2: &Tensor<S, Dtype>,
+    ) -> (&mut Tensor<S, Dtype>, &Tensor<S, Dtype>)
+    where
+        S: Dimension + 'static,
+        Dtype: Zero + One + 'static,
+    {
+        let t1 = self.mut_grad(l1) as *mut Tensor<S, Dtype>;
+        let t2 = self.grad(l2) as *const Tensor<S, Dtype>;
+        unsafe { (&mut *t1, &*t2) }
+    }
+
+    pub fn mmr_grad<S, Dtype>(
+        &mut self,
+        l1: (UniqueId, S),
+        l2: (UniqueId, S),
+        l3: UniqueId,
+    ) -> (
+        &mut Tensor<S, Dtype>,
+        &mut Tensor<S, Dtype>,
+        &Tensor<S, Dtype>,
+    )
+    where
+        S: Dimension + 'static,
+        Dtype: Zero + One + 'static,
+    {
+        let t1 = self.mut_grad_by_id(l1.0, l1.1) as *mut Tensor<S, Dtype>;
+        let t2 = self.mut_grad_by_id(l2.0, l2.1) as *mut Tensor<S, Dtype>;
+        let t3 = self.grad_by_id(l3) as *const Tensor<S, Dtype>;
+        unsafe { (&mut *t1, &mut *t2, &*t3) }
     }
 }

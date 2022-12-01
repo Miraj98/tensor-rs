@@ -2,7 +2,7 @@ use crate::prelude::{BackwardOps, Merge};
 use num_integer::Integer;
 use std::mem::{size_of, ManuallyDrop};
 
-use super::{dim::Dimension, TensorBase};
+use super::{dim::Dimension, Tensor};
 
 pub fn generate_strides<S>(dim: &S) -> S
 where
@@ -51,8 +51,8 @@ pub unsafe fn unlimited_transmute<A, B>(data: A) -> B {
 }
 
 pub fn merge_backward_ops<L, R, Dtype>(
-    lhs: &TensorBase<L, Dtype>,
-    rhs: &TensorBase<R, Dtype>,
+    lhs: &Tensor<L, Dtype>,
+    rhs: &Tensor<R, Dtype>,
 ) -> Option<BackwardOps>
 where
     L: Dimension,

@@ -135,7 +135,7 @@ where
                     ) = grad.mmr_grad(_lhs, _rhs, o_id);
                     let ones = Tensor::ones(grad_out.dim().clone());
                     *grad_lhs = grad_lhs.clone() + (&ones * grad_out);
-                    *grad_rhs = &ones * grad_out;
+                    *grad_rhs = grad_rhs.clone() + &ones * grad_out;
                 });
             }
         } else {
@@ -163,8 +163,8 @@ where
                         &Tensor<_, Dtype>,
                     ) = grad.mmr_grad(_v1, _v2, o_id);
                     let ones = Tensor::ones(grad_out.dim().clone());
-                    *grad_lhs = &ones * grad_out;
-                    *grad_rhs = &ones * grad_out;
+                    *grad_lhs = grad_lhs.clone() + &ones * grad_out;
+                    *grad_rhs = grad_rhs.clone() + &ones * grad_out;
                 });
             }
         }
@@ -204,10 +204,11 @@ mod tests {
         let grads = grad.execute();
         let t1_grad = grads.grad(&t1);
         let t2_grad = grads.grad(&t2);
+        // println!("{:?}", c);
+        // println!("{:?}", d);
+        // println!("{:?}", t1_grad);
+        // println!("{:?}", t2_grad);
 
-        println!("{:?}", c);
-        println!("{:?}", d);
-        println!("{:?}", t1_grad);
-        println!("{:?}", t2_grad);
+        todo!("Compelte the assertions for the correct gradients");
     }
 }

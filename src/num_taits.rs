@@ -1,4 +1,5 @@
 use core::ops::{Add, Mul};
+use std::ops::Sub;
 
 pub trait One: Sized + Mul<Self, Output = Self> + Copy {
     fn one() -> Self;
@@ -22,7 +23,7 @@ impl One for f64 {
     fn is_one(&self) -> bool { *self == Self::one() }
 }
 
-pub trait Zero: Sized + Add<Self, Output = Self> + Copy {
+pub trait Zero: Sized + Add<Self, Output = Self> + Sub<Self, Output = Self> + Copy {
     fn zero() -> Self;
     fn is_zero(&self) -> bool;
 }

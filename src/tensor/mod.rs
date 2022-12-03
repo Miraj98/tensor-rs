@@ -5,8 +5,10 @@ pub mod ops;
 pub mod utils;
 
 use self::dim::Dimension;
+use self::impl_constructors::TensorConstructors;
 use self::utils::unlimited_transmute;
-use crate::prelude::BackwardOps;
+use crate::num_taits::{One, Zero};
+use crate::prelude::{BackwardOps, GradientMap};
 use crate::unique_id::{unique_id, UniqueId};
 use std::cell::RefCell;
 use std::cmp::{max, min};
@@ -89,7 +91,7 @@ where
     }
 
     pub fn shape(&self) -> &[usize] {
-        self.dim.slice()
+        self.dim.shape()
     }
 
     pub fn strides(&self) -> S {
@@ -110,7 +112,7 @@ where
     S: Dimension,
 {
     pub fn from_vec(a: Vec<Dtype>, dim: S) -> TensorBase<S, OwnedData<Dtype>> {
-        let total_len = dim.get_iter().fold(1, |acc, val| acc * *val);
+        let total_len = dim.count();
         assert_eq!(total_len, a.len());
         let strides = generate_strides(&dim);
         TensorBase {
@@ -166,8 +168,6 @@ where
             backward_ops: RefCell::new(None),
         }
     }
-
-
 
     pub fn broadcast<K>(&self, to_dim: K) -> TensorBase<K, ViewData<Dtype>>
     where
@@ -230,6 +230,27 @@ where
             requires_grad: self.requires_grad,
             backward_ops: RefCell::new(self.backward_ops.borrow_mut().take()), // TODO: Not sure about this right now
         }
+    }
+
+    pub fn backward(&self) -> GradientMap
+    where
+        Dtype: Zero + One + 'static,
+        S: Dimension + 'static,
+    {
+        if self.backward_ops.borrow().is_none() {
+            panic!("Use requires_grad(true) to enable gradient computation");
+        }
+
+        let mut backops = self.detach_backward_ops().unwrap();
+        let id = self.id;
+        let dim = self.dim();
+        backops.add_backward_op(move |grad| {
+            let mut_ref: &mut Tensor<S, Dtype> = grad.mut_grad_by_id(id, dim.clone());
+            *mut_ref = Tensor::ones(dim);
+        });
+
+        let grads = backops.execute();
+        grads
     }
 }
 

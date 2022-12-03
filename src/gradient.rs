@@ -124,23 +124,25 @@ impl GradientMap {
         unsafe { (&mut *t1, &*t2) }
     }
 
-    pub fn mmr_grad<S, Dtype>(
+    pub fn mmr_grad<L1, L2, L3, Dtype>(
         &mut self,
-        l1: (UniqueId, S),
-        l2: (UniqueId, S),
+        l1: (UniqueId, L1),
+        l2: (UniqueId, L2),
         l3: UniqueId,
     ) -> (
-        &mut Tensor<S, Dtype>,
-        &mut Tensor<S, Dtype>,
-        &Tensor<S, Dtype>,
+        &mut Tensor<L1, Dtype>,
+        &mut Tensor<L2, Dtype>,
+        &Tensor<L3, Dtype>,
     )
     where
-        S: Dimension + 'static,
+        L1: Dimension + 'static,
+        L2: Dimension + 'static,
+        L3: Dimension + 'static,
         Dtype: Zero + One + 'static,
     {
-        let t1 = self.mut_grad_by_id(l1.0, l1.1) as *mut Tensor<S, Dtype>;
-        let t2 = self.mut_grad_by_id(l2.0, l2.1) as *mut Tensor<S, Dtype>;
-        let t3 = self.grad_by_id(l3) as *const Tensor<S, Dtype>;
+        let t1 = self.mut_grad_by_id(l1.0, l1.1) as *mut Tensor<L1, Dtype>;
+        let t2 = self.mut_grad_by_id(l2.0, l2.1) as *mut Tensor<L2, Dtype>;
+        let t3 = self.grad_by_id(l3) as *const Tensor<L3, Dtype>;
         unsafe { (&mut *t1, &mut *t2, &*t3) }
     }
 }

@@ -25,7 +25,8 @@ pub trait Dimension:
     const NDIM: usize;
 
     fn ndim(&self) -> usize;
-    fn slice(&self) -> &[usize];
+    fn shape(&self) -> &[usize];
+    fn count(&self) -> usize;
     fn into_dimensionality<D2>(&self) -> D2 where D2: Dimension;
     fn get_iter(&self) -> Iter<'_, usize>;
     fn ones() -> Self;
@@ -39,8 +40,12 @@ impl<const D: usize> Dimension for [usize; D] {
         D
     }
 
-    fn slice(&self) -> &[usize] {
+    fn shape(&self) -> &[usize] {
         &self[..]
+    }
+
+    fn count(&self) -> usize {
+        self.get_iter().fold(1, |acc, val| acc * *val)
     }
 
     fn into_dimensionality<D2>(&self) -> D2 where D2: Dimension {

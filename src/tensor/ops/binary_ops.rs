@@ -4,12 +4,9 @@ use crate::{
     num_taits::{One, Zero},
     prelude::{
         dim::{DimMax, DimMaxOf, Dimension},
-        impl_constructors::TensorConstructors,
-        utils::merge_backward_ops,
-        Tensor, TensorView, OwnedData, TensorBase,
+        utils::{merge_backward_ops, reduced_grad}, Tensor, TensorView,
     },
 };
-
 
 macro_rules! impl_std_binary_ops {
     ($op: ident, $op_trait: ident, $op_symbol: tt) => {
@@ -84,7 +81,6 @@ macro_rules! impl_std_binary_ops {
                 tensor
             }
         }
-
     };
 }
 
@@ -96,17 +92,12 @@ macro_rules! impl_binary_ops_with_broadcast {
     ($lhs: ident, $rhs: ident, $symbol: tt) => {
         {
             let out: Tensor<<L as DimMax<R>>::Output, Dtype>;
-            let _lhs: (crate::prelude::UniqueId, <L as DimMax<R>>::Output);
-            let _rhs: (crate::prelude::UniqueId, <L as DimMax<R>>::Output);
             let backops = merge_backward_ops($lhs, $rhs);
 
             if $lhs.shape() == $rhs.shape() {
                 let l = $lhs.into_dimensionality::<DimMaxOf<L, R>>();
                 let r = $rhs.into_dimensionality::<DimMaxOf<L, R>>();
                 out = l $symbol r;
-
-                _lhs = (l.id, l.dim());
-                _rhs = (r.id, r.dim());
             } else {
                 let v1: TensorView<'_, DimMaxOf<L, R>, Dtype>;
                 let v2: TensorView<'_, DimMaxOf<L, R>, Dtype>;
@@ -119,11 +110,8 @@ macro_rules! impl_binary_ops_with_broadcast {
                 v1 = $lhs.broadcast(dim.clone());
                 v2 = $rhs.broadcast(v1.dim());
                 out = v1.clone() $symbol v2.clone();
-
-                _lhs = (v1.id, v1.dim());
-                _rhs = (v2.id, v2.dim());
             }
-            (out, backops, _lhs, _rhs)
+            (out, backops)
         }
     }
 }
@@ -132,30 +120,40 @@ pub trait TensorBinaryOps<Rhs> {
     type Output;
     fn add(&self, rhs: &Rhs) -> Self::Output;
     fn sub(&self, rhs: &Rhs) -> Self::Output;
-    fn mul(&self, rhs: &Self) -> Self::Output;
+    // fn mul(&self, rhs: &Self) -> Self::Output;
 }
 
 impl<L, R, Dtype> TensorBinaryOps<Tensor<R, Dtype>> for Tensor<L, Dtype>
 where
     R: Dimension + 'static,
     L: Dimension + DimMax<R> + 'static,
-    Dtype: One + Zero + 'static 
+    Dtype: One + Zero + 'static,
 {
     type Output = Tensor<DimMaxOf<L, R>, Dtype>;
 
     fn add(&self, rhs: &Tensor<R, Dtype>) -> Self::Output {
-        let (out, mut backops, lhs, rhs) = impl_binary_ops_with_broadcast!(self, rhs, +);
+        let (out, mut backops) = impl_binary_ops_with_broadcast!(self, rhs, +);
         let o_id = out.id;
 
+        let lhs = (self.id, self.dim());
+        let rhs = (rhs.id, rhs.dim());
         if backops.is_some() {
             backops.as_mut().unwrap().add_backward_op(move |grad| {
                 let (grad_lhs, grad_rhs, grad_out): (
                     &mut Tensor<_, Dtype>,
                     &mut Tensor<_, Dtype>,
-                    &Tensor<_, Dtype>,
-                ) = grad.mmr_grad(lhs, rhs, o_id);
-                *grad_lhs = grad_lhs.clone() + grad_out;
-                *grad_rhs = grad_rhs.clone() + grad_out;
+                    &Tensor<DimMaxOf<L, R>, Dtype>,
+                ) = grad.mmr_grad(lhs.clone(), rhs.clone(), o_id);
+
+                if lhs.1.shape() == rhs.1.shape() {
+                    let g_out = grad_out.into_dimensionality::<L>();
+                    *grad_lhs = grad_lhs.clone() + g_out;
+                    let g_out = grad_out.into_dimensionality::<R>();
+                    *grad_rhs = grad_rhs.clone() + g_out;
+                } else {
+                    *grad_lhs = grad_lhs.clone() + reduced_grad(lhs.1, grad_out);
+                    *grad_rhs = grad_rhs.clone() + reduced_grad(rhs.1, grad_out);
+                }
             });
         }
 
@@ -164,48 +162,27 @@ where
     }
 
     fn sub(&self, rhs: &Tensor<R, Dtype>) -> Self::Output {
-        let (out, mut backops, lhs, rhs) = {
-            let out: Tensor<DimMaxOf<L, R>, Dtype>;
-            let _lhs: (crate::prelude::UniqueId, DimMaxOf<L, R>);
-            let _rhs: (crate::prelude::UniqueId,DimMaxOf<L, R>);
-            let backops = merge_backward_ops(self, rhs);
+        let (out, mut backops) = impl_binary_ops_with_broadcast!(self, rhs, -);
+        let o_id = out.id;
 
-            if self.shape() == rhs.shape() {
-                let l = self.into_dimensionality::<DimMaxOf<L, R>>();
-                let r = rhs.into_dimensionality::<DimMaxOf<L, R>>();
-                out = l - r;
-
-                _lhs = (l.id, l.dim());
-                _rhs = (r.id, r.dim());
-            } else {
-                let v1: TensorView<'_, DimMaxOf<L, R>, Dtype>;
-                let v2: TensorView<'_, DimMaxOf<L, R>, Dtype>;
-                let dim: DimMaxOf<L, R>;
-                if self.ndim() >= rhs.ndim() {
-                    dim = self.dim().into_dimensionality::<DimMaxOf<L, R>>();
+        let lhs = (self.id, self.dim());
+        let rhs = (rhs.id, rhs.dim());
+        if backops.is_some() {
+            backops.as_mut().unwrap().add_backward_op(move |grad| {
+                let (grad_lhs, grad_rhs, grad_out): (
+                    &mut Tensor<_, Dtype>,
+                    &mut Tensor<_, Dtype>,
+                    &Tensor<DimMaxOf<L, R>, Dtype>,
+                ) = grad.mmr_grad(lhs.clone(), rhs.clone(), o_id);
+                if lhs.1.shape() == rhs.1.shape() {
+                    let g_out = grad_out.into_dimensionality::<L>();
+                    *grad_lhs = grad_lhs.clone() + g_out;
+                    let g_out = grad_out.into_dimensionality::<R>();
+                    *grad_rhs = grad_rhs.clone() - g_out;
                 } else {
-                    dim = rhs.dim().into_dimensionality::<DimMaxOf<L, R>>();
+                    *grad_lhs = grad_lhs.clone() + reduced_grad(lhs.1, grad_out);
+                    *grad_rhs = grad_rhs.clone() - reduced_grad(rhs.1, grad_out);
                 }
-                v1 = self.broadcast(dim.clone());
-                v2 = rhs.broadcast(v1.dim());
-                out = v1.clone() - v2.clone();
-
-                _lhs = (v1.id, v1.dim());
-                _rhs = (v2.id, v2.dim());
-            }
-            (out, backops, _lhs, _rhs)
-        };
-        let o_id = out.id;
-
-        if backops.is_some() {
-            backops.as_mut().unwrap().add_backward_op(move |grad| {
-                let (grad_lhs, grad_rhs, grad_out): (
-                    &mut Tensor<_, Dtype>,
-                    &mut Tensor<_, Dtype>,
-                    &Tensor<_, Dtype>,
-                ) = grad.mmr_grad(lhs, rhs, o_id);
-                // *grad_lhs = grad_lhs.clone() + grad_out;
-                // *grad_rhs = grad_rhs.clone() - grad_out;
             });
         }
 
@@ -213,31 +190,52 @@ where
         out
     }
 
-    fn mul(&self, rhs: &Self) -> Self::Output {
-        let (out, mut backops, l, r) = impl_binary_ops_with_broadcast!(self, rhs, *);
-        let o_id = out.id;
+    // fn mul(&self, rhs: &Self) -> Self::Output {
+    //     let (out, mut backops) = impl_binary_ops_with_broadcast!(self, rhs, *);
+    //     let o_id = out.id;
 
-        if backops.is_some() {
-            backops.as_mut().unwrap().add_backward_op(move |grad| {
-                let (grad_lhs, grad_rhs, grad_out): (
-                    &mut Tensor<_, Dtype>,
-                    &mut Tensor<_, Dtype>,
-                    &Tensor<_, Dtype>,
-                ) = grad.mmr_grad(l, r, o_id);
-                // let ones = Tensor::ones(grad_out.dim().clone());
-                // *grad_lhs = grad_lhs.clone() + grad_out;
-                // *grad_rhs = grad_rhs.clone() - grad_out;
-            });
-        }
+    //     let lhs = (self.id, self.dim());
+    //     let rhs = (rhs.id, rhs.dim());
+    //     if backops.is_some() {
+    //         backops.as_mut().unwrap().add_backward_op(move |grad| {
+    //             let (grad_lhs, grad_rhs, grad_out): (
+    //                 &mut Tensor<_, Dtype>,
+    //                 &mut Tensor<_, Dtype>,
+    //                 &Tensor<_, Dtype>,
+    //             ) = grad.mmr_grad(l, r, o_id);
+    //             if l.1.is_owned() {
+    //                 let _lhs = l.1.take_owned();
+    //                 let _rhs = r.1.take_owned();
+    //                 *grad_lhs = grad_lhs.clone() + grad_out * &_rhs;
+    //                 *grad_rhs = grad_rhs.clone() + grad_out * &_lhs;
+    //             } else {
+    //                 let _lhs = l.1.take_view();
+    //                 let _rhs = r.1.take_view();
+    //                 *grad_lhs = grad_lhs.clone() + grad_out * _rhs;
+    //                 *grad_rhs = grad_rhs.clone() + grad_out * _lhs;
+    //             }
+    //         });
+    //     }
 
-        out.put_backward_ops(backops);
-        out
-    }
+    //     out.put_backward_ops(backops);
+    //     out
+    // }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::prelude::Tensor;
+    use crate::prelude::{Tensor, ops::binary_ops::TensorBinaryOps};
+
+    #[test]
+    fn add_tensors() {
+        let t1 = Tensor::from_vec(vec![5, 1, 3], [3, 1]).requires_grad(true);
+        let t2 = Tensor::from_vec(vec![1, 2, 3, 4, 5, 6], [2, 1, 3]).requires_grad(true);
+        let c = t1.add(&t2);
+        let grads = c.backward();
+
+        println!("t1 grad\n{:#?}\n\n", grads.grad(&t1));
+        println!("t2 grad\n{:#?}\n\n", grads.grad(&t2));
+    }
 
     #[test]
     fn sub_tensors() {

@@ -1,8 +1,11 @@
-use crate::prelude::{BackwardOps, Merge};
+use crate::{
+    num_taits::{One, Zero},
+    prelude::{BackwardOps, Merge},
+};
 use num_integer::Integer;
 use std::mem::{size_of, ManuallyDrop};
 
-use super::{dim::Dimension, Tensor};
+use super::{dim::Dimension, impl_constructors::TensorConstructors, Tensor, TensorBase};
 
 pub fn generate_strides<S>(dim: &S) -> S
 where
@@ -32,13 +35,14 @@ where
     idx
 }
 
-pub fn vec_id<S>(tnsr_idx: S, padded_dims: &S, padded_strides: &S) -> usize
+pub fn vec_id<S>(tnsr_idx: S, dims: &S, strides: &S) -> usize
 where
     S: Dimension,
 {
-    let id = tnsr_idx.get_iter().enumerate().fold(0, |acc, (i, val)| {
-        acc + padded_strides[i] * (val % padded_dims[i])
-    });
+    let id = tnsr_idx
+        .get_iter()
+        .enumerate()
+        .fold(0, |acc, (i, val)| acc + strides[i] * (val % dims[i]));
 
     id
 }
@@ -62,4 +66,30 @@ where
     let rhs_ops = rhs.detach_backward_ops();
     let merged = lhs_ops.merge(rhs_ops);
     merged
+}
+
+pub fn reduced_grad<L, R, Dtype>(reduce_to: L, incoming_grad: &Tensor<R, Dtype>) -> Tensor<L, Dtype>
+where
+    L: Dimension,
+    R: Dimension,
+    Dtype: One + Zero + std::ops::Add<Dtype, Output = Dtype>,
+{
+    let mut t = vec![Dtype::zero(); reduce_to.count()];
+    if reduce_to.shape() != incoming_grad.shape() {
+        let mut padded = R::ones();
+        reduce_to.get_iter().enumerate().for_each(|(i, val)| {
+            padded[incoming_grad.ndim() - reduce_to.ndim() + i] = *val;
+        });
+        let padded_strides = generate_strides(&padded);
+        let broadcasted_strides = generate_strides(&incoming_grad.dim());
+        let broadcasted_count = incoming_grad.dim().count();
+
+        for i in 0..broadcasted_count {
+            let incoming_grad_idx = tnsr_idx(i, &broadcasted_strides);
+            let idx = vec_id(incoming_grad_idx.clone(), &padded, &padded_strides);
+            t[idx] = t[idx] + incoming_grad[incoming_grad_idx];
+        }
+    }
+
+    TensorBase::from_vec(t, reduce_to)
 }

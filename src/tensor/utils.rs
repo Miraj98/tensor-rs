@@ -61,6 +61,7 @@ pub fn merge_backward_ops<L, R, Dtype>(
 where
     L: Dimension,
     R: Dimension,
+    Dtype: PartialEq,
 {
     let lhs_ops = lhs.detach_backward_ops();
     let rhs_ops = rhs.detach_backward_ops();
@@ -72,7 +73,7 @@ pub fn reduced_grad<L, R, Dtype>(reduce_to: L, incoming_grad: &Tensor<R, Dtype>)
 where
     L: Dimension,
     R: Dimension,
-    Dtype: One + Zero + std::ops::Add<Dtype, Output = Dtype>,
+    Dtype: One + Zero + PartialEq + std::ops::Add<Dtype, Output = Dtype>,
 {
     let mut t = vec![Dtype::zero(); reduce_to.count()];
     if reduce_to.shape() != incoming_grad.shape() {

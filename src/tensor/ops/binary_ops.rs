@@ -16,7 +16,7 @@ macro_rules! impl_std_binary_ops {
         impl<'a, S, Dtype> std::ops::$op_trait<&'a Tensor<S, Dtype>> for &'a Tensor<S, Dtype>
         where
             S: Dimension,
-            Dtype: Copy + std::ops::$op_trait<Dtype, Output = Dtype>,
+            Dtype: Copy + std::ops::$op_trait<Dtype, Output = Dtype> + PartialEq,
         {
             type Output = Tensor<S, Dtype>;
 
@@ -34,7 +34,7 @@ macro_rules! impl_std_binary_ops {
         impl<'a, S, Dtype> std::ops::$op_trait<&'a Tensor<S, Dtype>> for Tensor<S, Dtype>
         where
             S: Dimension,
-            Dtype: Copy + std::ops::$op_trait<Dtype, Output = Dtype>,
+            Dtype: Copy + std::ops::$op_trait<Dtype, Output = Dtype> + PartialEq,
         {
             type Output = Tensor<S, Dtype>;
 
@@ -52,7 +52,7 @@ macro_rules! impl_std_binary_ops {
         impl<S, Dtype> std::ops::$op_trait<Tensor<S, Dtype>> for Tensor<S, Dtype>
         where
             S: Dimension,
-            Dtype: Copy + std::ops::$op_trait<Dtype, Output = Dtype>,
+            Dtype: Copy + std::ops::$op_trait<Dtype, Output = Dtype> + PartialEq,
         {
             type Output = Tensor<S, Dtype>;
 
@@ -70,7 +70,7 @@ macro_rules! impl_std_binary_ops {
         impl<'a, S, Dtype> std::ops::$op_trait<TensorView<'a, S, Dtype>> for TensorView<'a, S, Dtype>
         where
             S: Dimension,
-            Dtype: Copy + std::ops::$op_trait<Dtype, Output = Dtype>,
+            Dtype: Copy + std::ops::$op_trait<Dtype, Output = Dtype>+ PartialEq,
         {
             type Output = Tensor<S, Dtype>;
 
@@ -88,7 +88,7 @@ macro_rules! impl_std_binary_ops {
         impl<'a, S, Dtype> std::ops::$op_trait<TensorView<'a, S, Dtype>> for &Tensor<S, Dtype>
         where
             S: Dimension,
-            Dtype: Copy + std::ops::$op_trait<Dtype, Output = Dtype>,
+            Dtype: Copy + std::ops::$op_trait<Dtype, Output = Dtype> + PartialEq,
         {
             type Output = Tensor<S, Dtype>;
 
@@ -153,7 +153,7 @@ impl<L, R, Dtype> TensorBinaryOps<Tensor<R, Dtype>> for Tensor<L, Dtype>
 where
     R: Dimension + 'static,
     L: Dimension + DimMax<R> + 'static,
-    Dtype: One + Zero + 'static,
+    Dtype: One + Zero + PartialEq + 'static,
 {
     type Output = Tensor<DimMaxOf<L, R>, Dtype>;
 

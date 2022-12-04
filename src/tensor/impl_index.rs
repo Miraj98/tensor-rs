@@ -10,7 +10,7 @@ impl<'a, Dtype> Index<usize> for ViewData<'a, Dtype> {
     }
 }
 
-impl<Dtype> Index<usize> for OwnedData<Dtype> {
+impl<Dtype: PartialEq> Index<usize> for OwnedData<Dtype> {
     type Output = Dtype;
 
     fn index(&self, idx: usize) -> &Self::Output {

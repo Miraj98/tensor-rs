@@ -58,7 +58,7 @@ impl GradientMap {
     pub fn grad<S, Dtype>(&self, t: &Tensor<S, Dtype>) -> &Tensor<S, Dtype>
     where
         S: Dimension + 'static,
-        Dtype: Zero + One + 'static,
+        Dtype: Zero + One + PartialEq + 'static,
     {
         self.0.get(t.id()).unwrap().as_ref().downcast_ref().unwrap()
     }
@@ -66,7 +66,7 @@ impl GradientMap {
     pub fn grad_by_id<S, Dtype>(&self, t: UniqueId) -> &Tensor<S, Dtype>
     where
         S: Dimension + 'static,
-        Dtype: Zero + One + 'static,
+        Dtype: Zero + One + PartialEq + 'static,
     {
         self.0.get(&t).unwrap().as_ref().downcast_ref().unwrap()
     }
@@ -74,7 +74,7 @@ impl GradientMap {
     pub fn mut_grad<S, Dtype>(&mut self, t: &Tensor<S, Dtype>) -> &mut Tensor<S, Dtype>
     where
         S: Dimension + 'static,
-        Dtype: Zero + One + 'static,
+        Dtype: Zero + One + PartialEq + 'static,
     {
         self.0
             .entry(*t.id())
@@ -87,7 +87,7 @@ impl GradientMap {
     pub fn mut_grad_by_id_with_ones<S, Dtype>(&mut self, t: UniqueId, dim: S) -> &mut Tensor<S, Dtype>
     where
         S: Dimension + 'static,
-        Dtype: Zero + One + 'static,
+        Dtype: Zero + One + PartialEq + 'static,
     {
         self.0
             .entry(t)
@@ -100,7 +100,7 @@ impl GradientMap {
     pub fn mut_grad_by_id<S, Dtype>(&mut self, t: UniqueId, dim: S) -> &mut Tensor<S, Dtype>
     where
         S: Dimension + 'static,
-        Dtype: Zero + One + 'static,
+        Dtype: Zero + One + PartialEq + 'static,
     {
         self.0
             .entry(t)
@@ -117,7 +117,7 @@ impl GradientMap {
     ) -> (&mut Tensor<S, Dtype>, &Tensor<S, Dtype>)
     where
         S: Dimension + 'static,
-        Dtype: Zero + One + 'static,
+        Dtype: Zero + One + PartialEq + 'static,
     {
         let t1 = self.mut_grad(l1) as *mut Tensor<S, Dtype>;
         let t2 = self.grad(l2) as *const Tensor<S, Dtype>;
@@ -138,7 +138,7 @@ impl GradientMap {
         L1: Dimension + 'static,
         L2: Dimension + 'static,
         L3: Dimension + 'static,
-        Dtype: Zero + One + 'static,
+        Dtype: Zero + One + PartialEq + 'static,
     {
         let t1 = self.mut_grad_by_id(l1.0, l1.1) as *mut Tensor<L1, Dtype>;
         let t2 = self.mut_grad_by_id(l2.0, l2.1) as *mut Tensor<L2, Dtype>;

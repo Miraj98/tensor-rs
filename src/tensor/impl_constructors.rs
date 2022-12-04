@@ -11,7 +11,7 @@ pub trait TensorConstructors {
 impl<S, Dtype> TensorConstructors for Tensor<S, Dtype>
 where
     S: Dimension,
-    Dtype: One + Zero,
+    Dtype: One + Zero + PartialEq,
 {
     type S = S;
 

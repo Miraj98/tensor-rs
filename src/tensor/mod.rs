@@ -3,6 +3,7 @@ pub mod impl_constructors;
 pub mod impl_index;
 pub mod ops;
 pub mod utils;
+pub mod impl_eq;
 
 use self::dim::Dimension;
 use self::impl_constructors::TensorConstructors;
@@ -12,23 +13,30 @@ use crate::prelude::{BackwardOps, GradientMap};
 use crate::unique_id::{unique_id, UniqueId};
 use std::cell::RefCell;
 use std::cmp::{max, min};
+use std::iter::zip;
 use std::ops::Deref;
 use std::rc::Rc;
 use std::usize;
 use utils::{generate_strides, tnsr_idx, vec_id};
 
-pub trait Data: Clone {
+pub trait Data: Clone + PartialEq {
     type Dtype;
 
     fn as_ptr(&self) -> *const Self::Dtype;
 }
 
 #[derive(Debug)]
-pub struct OwnedData<Dtype> {
+pub struct OwnedData<Dtype> where Dtype: PartialEq {
     data: Rc<Vec<Dtype>>,
 }
 
-impl<Dtype> Data for OwnedData<Dtype> {
+impl<Dtype: PartialEq> PartialEq for OwnedData<Dtype> {
+    fn eq(&self, other: &Self) -> bool {
+        self.data == other.data
+    }
+}
+
+impl<Dtype: PartialEq> Data for OwnedData<Dtype> {
     type Dtype = Dtype;
 
     fn as_ptr(&self) -> *const Self::Dtype {
@@ -36,7 +44,7 @@ impl<Dtype> Data for OwnedData<Dtype> {
     }
 }
 
-impl<Dtype> Deref for OwnedData<Dtype> {
+impl<Dtype: PartialEq> Deref for OwnedData<Dtype> {
     type Target = Rc<Vec<Dtype>>;
 
     fn deref(&self) -> &Self::Target {
@@ -44,7 +52,7 @@ impl<Dtype> Deref for OwnedData<Dtype> {
     }
 }
 
-impl<Dtype> Clone for OwnedData<Dtype> {
+impl<Dtype: PartialEq> Clone for OwnedData<Dtype> {
     fn clone(&self) -> Self {
         Self {
             data: Rc::clone(&self.data),
@@ -57,7 +65,40 @@ pub struct ViewData<'a, Dtype> {
     data: Rc<Vec<&'a Dtype>>,
 }
 
-impl<'a, Dtype> Data for ViewData<'a, Dtype>
+impl<Dtype: PartialEq> PartialEq for ViewData<'_, Dtype> {
+    fn eq(&self, other: &Self) -> bool {
+        let mut is_eq = self.data.len() == other.data.len();
+        for (s, o) in zip(self.data.iter(), other.data.iter()) {
+            is_eq = is_eq && **s == **o;
+        }
+
+        is_eq
+    }
+}
+
+impl<Dtype: PartialEq> PartialEq<OwnedData<Dtype>> for ViewData<'_, Dtype> {
+    fn eq(&self, other: &OwnedData<Dtype>)-> bool {
+        let mut is_eq = self.data.len() == other.data.len();
+        for (s, o) in zip(self.data.iter(), other.data.iter()) {
+            is_eq = is_eq && **s == *o;
+        }
+
+        is_eq
+    }
+}
+
+impl<Dtype: PartialEq> PartialEq<ViewData<'_, Dtype>> for OwnedData<Dtype> {
+    fn eq(&self, other: &ViewData<'_, Dtype>)-> bool {
+        let mut is_eq = self.data.len() == other.data.len();
+        for (s, o) in zip(self.data.iter(), other.data.iter()) {
+            is_eq = is_eq && *s == **o;
+        }
+
+        is_eq
+    }
+}
+
+impl<'a, Dtype: PartialEq> Data for ViewData<'a, Dtype>
 where
     Dtype: Copy,
 {
@@ -138,6 +179,7 @@ where
 impl<S, Dtype> TensorBase<S, OwnedData<Dtype>>
 where
     S: Dimension,
+    Dtype: PartialEq
 {
     pub fn from_vec(a: Vec<Dtype>, dim: S) -> TensorBase<S, OwnedData<Dtype>> {
         let total_len = dim.count();

@@ -20,9 +20,10 @@ use std::usize;
 use utils::{generate_strides, tnsr_idx, vec_id};
 
 pub trait Data: Clone + PartialEq {
-    type Dtype;
+    type Dtype: PartialEq + Copy;
 
     fn as_ptr(&self) -> *const Self::Dtype;
+    fn map(&self, f: impl Fn(Self::Dtype) -> Self::Dtype) -> OwnedData<Self::Dtype>;
 }
 
 #[derive(Debug)]
@@ -36,11 +37,17 @@ impl<Dtype: PartialEq> PartialEq for OwnedData<Dtype> {
     }
 }
 
-impl<Dtype: PartialEq> Data for OwnedData<Dtype> {
+impl<Dtype: PartialEq + Copy> Data for OwnedData<Dtype> {
     type Dtype = Dtype;
 
     fn as_ptr(&self) -> *const Self::Dtype {
         self.data.as_ptr()
+    }
+
+    fn map(&self, f: impl Fn(Self::Dtype) -> Self::Dtype) -> OwnedData<Self::Dtype> {
+        let mut result = self.clone();
+        result.data = Rc::new(self.data.iter().map(move |x| f(*x)).collect());
+        result
     }
 }
 
@@ -108,6 +115,9 @@ where
         let a = self.data.iter().map(|x| **x).collect::<Vec<_>>();
         a.as_ptr()
     }
+    fn map(&self, f: impl Fn(Self::Dtype) -> Self::Dtype) -> OwnedData<Self::Dtype> {
+        OwnedData{ data: Rc::new(self.data.iter().map(|x| f(**x)).collect()) }
+    }
 }
 
 impl<'a, Dtype> Deref for ViewData<'a, Dtype> {
@@ -166,6 +176,18 @@ where
     pub fn strides(&self) -> S {
         self.strides.clone()
     }
+    pub fn map(&self, f: impl Fn(A::Dtype) -> A::Dtype) -> Tensor<S, A::Dtype> {
+        TensorBase {
+            id: unique_id(),
+            data: self.data.map(f),
+            dim: self.dim.clone(),
+            strides: self.strides.clone(),
+            stride_reps: self.stride_reps.clone(),
+            backward_ops: RefCell::new(None),
+            is_leaf: false,
+            requires_grad: self.requires_grad,
+        }
+    }
 
     pub fn id(&self) -> &UniqueId {
         &self.id
@@ -179,7 +201,7 @@ where
 impl<S, Dtype> TensorBase<S, OwnedData<Dtype>>
 where
     S: Dimension,
-    Dtype: PartialEq
+    Dtype: PartialEq + Copy
 {
     pub fn from_vec(a: Vec<Dtype>, dim: S) -> TensorBase<S, OwnedData<Dtype>> {
         let total_len = dim.count();

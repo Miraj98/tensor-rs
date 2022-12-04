@@ -57,7 +57,10 @@ pub struct ViewData<'a, Dtype> {
     data: Rc<Vec<&'a Dtype>>,
 }
 
-impl<'a, Dtype> Data for ViewData<'a, Dtype> where Dtype: Copy {
+impl<'a, Dtype> Data for ViewData<'a, Dtype>
+where
+    Dtype: Copy,
+{
     type Dtype = Dtype;
 
     fn as_ptr(&self) -> *const Self::Dtype {
@@ -86,7 +89,7 @@ impl<'a, Dtype> Clone for ViewData<'a, Dtype> {
 pub struct TensorBase<S, A>
 where
     S: Dimension,
-    A: Data
+    A: Data,
 {
     id: UniqueId,
     data: A,
@@ -178,7 +181,10 @@ where
         self.stride_reps = a;
     }
 
-    pub fn view(&self) -> TensorBase<S, ViewData<'_, Dtype>> where Dtype: Copy {
+    pub fn view(&self) -> TensorBase<S, ViewData<'_, Dtype>>
+    where
+        Dtype: Copy,
+    {
         let a = self.data.iter().collect();
         let view_data = ViewData { data: Rc::new(a) };
 
@@ -194,10 +200,26 @@ where
         }
     }
 
+    pub fn t(&self) -> TensorBase<S, ViewData<'_, Dtype>> where Dtype: Copy {
+        let strides = self.strides.rev();
+        let dim = self.dim.rev();
+        let a = self.data.iter().collect();
+        TensorBase {
+            id: self.id,
+            data: ViewData { data: Rc::new(a) },
+            dim,
+            strides,
+            stride_reps: self.stride_reps.clone(),
+            backward_ops: RefCell::new(None),
+            is_leaf: false,
+            requires_grad: false,
+        }
+    }
+
     pub fn broadcast<K>(&self, to_dim: K) -> TensorBase<K, ViewData<Dtype>>
     where
         K: Dimension,
-        Dtype: Copy
+        Dtype: Copy,
     {
         assert!(self.dim.ndim() <= to_dim.ndim());
         let num_l = self.ndim();

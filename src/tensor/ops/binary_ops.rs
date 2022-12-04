@@ -255,10 +255,12 @@ where
     }
 }
 
-impl<A> Matmul<TensorBase<[usize; 2], A>> for TensorBase<[usize; 2], A> where A: Data<Dtype = f32> {
-    type Output = Tensor<[usize; 2], A::Dtype>;
+impl<A> TensorBase<[usize; 2], A> where A: Data<Dtype = f32> {
 
-    fn matmul(&self, rhs: &TensorBase<[usize; 2], A>) -> Self::Output {
+    fn dot<B>(&self, rhs: &TensorBase<[usize; 2], B>) -> Tensor<[usize; 2], A::Dtype> where B: Data<Dtype = f32>  {
+        let a = self.shape()[1];
+        let b = self.shape()[1];
+        println!("a: {}, b: {}", a, b);
         assert!(self.shape()[1] == rhs.shape()[0]);
         let out_dim = [self.shape()[0], rhs.shape()[1]];
         let out_strides = generate_strides(&out_dim);
@@ -287,42 +289,35 @@ impl<A> Matmul<TensorBase<[usize; 2], A>> for TensorBase<[usize; 2], A> where A:
     }
 }
 
-impl<A> Matmul<TensorBase<[usize; 2], A>> for &TensorBase<[usize; 2], A> where A: Data<Dtype = f32> {
-    type Output = Tensor<[usize; 2], A::Dtype>;
 
-    fn matmul(&self, rhs: &TensorBase<[usize; 2], A>) -> Self::Output {
-        assert!(self.shape()[1] == rhs.shape()[0]);
-        let out_dim = [self.shape()[0], rhs.shape()[1]];
-        let out_strides = generate_strides(&out_dim);
-        let mut o = vec![0.; out_dim[0] * out_dim[1]];
+impl Matmul<Tensor<[usize; 2], f32>> for Tensor<[usize; 2], f32> {
+    type Output = Tensor<[usize; 2], f32>;
 
-        unsafe {
-            sgemm(
-                self.shape()[0],
-                self.shape()[1],
-                rhs.shape()[1],
-                1.,
-                self.data.as_ptr(),
-                self.strides()[0] as isize,
-                self.strides()[1] as isize,
-                rhs.data.as_ptr(),
-                rhs.strides()[0] as isize,
-                rhs.strides()[1] as isize,
-                0.,
-                o.as_mut_ptr(),
-                out_strides[0] as isize,
-                out_strides[1] as isize,
-            )
-        }
+    fn matmul(&self, rhs: &Tensor<[usize; 2], f32>) -> Self::Output {
+        let mut backops = merge_backward_ops(self, rhs);
+        let out = self.dot(rhs);
 
-        Tensor::from_vec(o, out_dim)
+        let out_id = out.id;
+        let lhs_clone = self.clone();
+        let rhs_clone = rhs.clone();
+        backops.as_mut().unwrap().add_backward_op(move |grad| {
+           let (grad_lhs, grad_rhs, grad_out): (
+                &mut Tensor<_, f32>,
+                &mut Tensor<_, f32>,
+                &Tensor<[usize; 2], f32>,
+            ) = grad.mmr_grad((lhs_clone.id, lhs_clone.dim()), (rhs_clone.id, rhs_clone.dim()), out_id);
+            *grad_lhs = grad_lhs.clone() + grad_out.dot(&rhs_clone.t());
+            *grad_rhs = grad_rhs.clone() + &lhs_clone.t().dot(grad_out);
+        });
+
+        out.with_backops(backops)
     }
 }
 
 
 #[cfg(test)]
 mod tests {
-    use crate::prelude::{ops::binary_ops::TensorBinaryOps, Tensor};
+    use crate::prelude::{ops::binary_ops::{TensorBinaryOps, Matmul}, Tensor};
 
     #[test]
     fn add_tensors() {
@@ -353,4 +348,17 @@ mod tests {
         let c = t1.view() - t2.view();
         println!("{:?}", c);
     }
+
+    #[test]
+    fn matmul_tensors() {
+        let t1 = Tensor::from_vec(vec![1., 2., 5., 8., 10., 11., 17., 50., 100.], [9, 1]).requires_grad(true);
+        let t2 = Tensor::from_vec(vec![1., 2., 3., 4., 5., 6.], [1, 6]).requires_grad(true);
+        let c = t1.matmul(&t2);
+        let grads = c.backward();
+
+        println!("c (out) -> \n{:#?}\n\n", c);
+        println!("t1 grad\n{:#?}\n\n", grads.grad(&t1));
+        println!("t2 grad\n{:#?}\n\n", grads.grad(&t2));
+    }
+
 }

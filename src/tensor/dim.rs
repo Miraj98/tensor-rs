@@ -26,6 +26,7 @@ pub trait Dimension:
 
     fn ndim(&self) -> usize;
     fn shape(&self) -> &[usize];
+    fn rev(&self) -> Self;
     fn count(&self) -> usize;
     fn into_dimensionality<D2>(&self) -> D2 where D2: Dimension;
     fn get_iter(&self) -> Iter<'_, usize>;
@@ -42,6 +43,12 @@ impl<const D: usize> Dimension for [usize; D] {
 
     fn shape(&self) -> &[usize] {
         &self[..]
+    }
+
+    fn rev(&self) -> Self {
+        let mut a = self.clone();
+        a.reverse();
+        a
     }
 
     fn count(&self) -> usize {

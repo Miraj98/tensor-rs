@@ -6,8 +6,8 @@ use crate::{
     num_taits::{One, Zero},
     prelude::{
         dim::{DimMax, DimMaxOf, Dimension},
-        utils::{merge_backward_ops, reduced_grad, generate_strides},
-        Tensor, TensorView, TensorBase, Data,
+        utils::{generate_strides, merge_backward_ops, reduced_grad},
+        Data, Tensor, TensorBase, TensorView,
     },
 };
 
@@ -255,9 +255,14 @@ where
     }
 }
 
-impl<A> TensorBase<[usize; 2], A> where A: Data<Dtype = f32> {
-
-    fn dot<B>(&self, rhs: &TensorBase<[usize; 2], B>) -> Tensor<[usize; 2], A::Dtype> where B: Data<Dtype = f32>  {
+impl<A> TensorBase<[usize; 2], A>
+where
+    A: Data<Dtype = f32>,
+{
+    fn dot<B>(&self, rhs: &TensorBase<[usize; 2], B>) -> Tensor<[usize; 2], A::Dtype>
+    where
+        B: Data<Dtype = f32>,
+    {
         let a = self.shape()[1];
         let b = self.shape()[1];
         println!("a: {}, b: {}", a, b);
@@ -289,7 +294,6 @@ impl<A> TensorBase<[usize; 2], A> where A: Data<Dtype = f32> {
     }
 }
 
-
 impl Matmul<Tensor<[usize; 2], f32>> for Tensor<[usize; 2], f32> {
     type Output = Tensor<[usize; 2], f32>;
 
@@ -301,11 +305,15 @@ impl Matmul<Tensor<[usize; 2], f32>> for Tensor<[usize; 2], f32> {
         let lhs_clone = self.clone();
         let rhs_clone = rhs.clone();
         backops.as_mut().unwrap().add_backward_op(move |grad| {
-           let (grad_lhs, grad_rhs, grad_out): (
+            let (grad_lhs, grad_rhs, grad_out): (
                 &mut Tensor<_, f32>,
                 &mut Tensor<_, f32>,
                 &Tensor<[usize; 2], f32>,
-            ) = grad.mmr_grad((lhs_clone.id, lhs_clone.dim()), (rhs_clone.id, rhs_clone.dim()), out_id);
+            ) = grad.mmr_grad(
+                (lhs_clone.id, lhs_clone.dim()),
+                (rhs_clone.id, rhs_clone.dim()),
+                out_id,
+            );
             *grad_lhs = grad_lhs.clone() + grad_out.dot(&rhs_clone.t());
             *grad_rhs = grad_rhs.clone() + &lhs_clone.t().dot(grad_out);
         });
@@ -314,17 +322,20 @@ impl Matmul<Tensor<[usize; 2], f32>> for Tensor<[usize; 2], f32> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use crate::prelude::{ops::binary_ops::{TensorBinaryOps, Matmul}, Tensor};
+    use crate::prelude::{
+        ops::binary_ops::{Matmul, TensorBinaryOps},
+        Tensor,
+    };
 
     #[test]
     fn add_tensors() {
-        let t1 = Tensor::from_vec(vec![5, 1, 3], [3, 1]).requires_grad(true);
-        let t2 = Tensor::from_vec(vec![1, 2, 3, 4, 5, 6], [2, 1, 3]).requires_grad(true);
+        let t1 = Tensor::from_vec(vec![5., 1., 3.], [3, 1]).requires_grad(true);
+        let t2 = Tensor::from_vec(vec![1., 2., 3., 4., 5., 6.], [2, 1, 3]).requires_grad(true);
         let c = t1.add(&t2);
         let grads = c.backward();
+
 
         println!("t1 grad\n{:#?}\n\n", grads.grad(&t1));
         println!("t2 grad\n{:#?}\n\n", grads.grad(&t2));
@@ -351,7 +362,8 @@ mod tests {
 
     #[test]
     fn matmul_tensors() {
-        let t1 = Tensor::from_vec(vec![1., 2., 5., 8., 10., 11., 17., 50., 100.], [9, 1]).requires_grad(true);
+        let t1 = Tensor::from_vec(vec![1., 2., 5., 8., 10., 11., 17., 50., 100.], [9, 1])
+            .requires_grad(true);
         let t2 = Tensor::from_vec(vec![1., 2., 3., 4., 5., 6.], [1, 6]).requires_grad(true);
         let c = t1.matmul(&t2);
         let grads = c.backward();
@@ -360,5 +372,4 @@ mod tests {
         println!("t1 grad\n{:#?}\n\n", grads.grad(&t1));
         println!("t2 grad\n{:#?}\n\n", grads.grad(&t2));
     }
-
 }

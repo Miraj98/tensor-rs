@@ -17,9 +17,23 @@ use std::rc::Rc;
 use std::usize;
 use utils::{generate_strides, tnsr_idx, vec_id};
 
+pub trait Data: Clone {
+    type Dtype;
+
+    fn as_ptr(&self) -> *const Self::Dtype;
+}
+
 #[derive(Debug)]
 pub struct OwnedData<Dtype> {
     data: Rc<Vec<Dtype>>,
+}
+
+impl<Dtype> Data for OwnedData<Dtype> {
+    type Dtype = Dtype;
+
+    fn as_ptr(&self) -> *const Self::Dtype {
+        self.data.as_ptr()
+    }
 }
 
 impl<Dtype> Deref for OwnedData<Dtype> {
@@ -43,6 +57,15 @@ pub struct ViewData<'a, Dtype> {
     data: Rc<Vec<&'a Dtype>>,
 }
 
+impl<'a, Dtype> Data for ViewData<'a, Dtype> where Dtype: Copy {
+    type Dtype = Dtype;
+
+    fn as_ptr(&self) -> *const Self::Dtype {
+        let a = self.data.iter().map(|x| **x).collect::<Vec<_>>();
+        a.as_ptr()
+    }
+}
+
 impl<'a, Dtype> Deref for ViewData<'a, Dtype> {
     type Target = Rc<Vec<&'a Dtype>>;
 
@@ -63,6 +86,7 @@ impl<'a, Dtype> Clone for ViewData<'a, Dtype> {
 pub struct TensorBase<S, A>
 where
     S: Dimension,
+    A: Data
 {
     id: UniqueId,
     data: A,
@@ -77,6 +101,7 @@ where
 impl<S, A> TensorBase<S, A>
 where
     S: Dimension,
+    A: Data,
 {
     pub fn dim(&self) -> S {
         self.dim.clone()
@@ -153,7 +178,7 @@ where
         self.stride_reps = a;
     }
 
-    pub fn view(&self) -> TensorBase<S, ViewData<'_, Dtype>> {
+    pub fn view(&self) -> TensorBase<S, ViewData<'_, Dtype>> where Dtype: Copy {
         let a = self.data.iter().collect();
         let view_data = ViewData { data: Rc::new(a) };
 
@@ -172,6 +197,7 @@ where
     pub fn broadcast<K>(&self, to_dim: K) -> TensorBase<K, ViewData<Dtype>>
     where
         K: Dimension,
+        Dtype: Copy
     {
         assert!(self.dim.ndim() <= to_dim.ndim());
         let num_l = self.ndim();
@@ -257,7 +283,7 @@ where
 impl<S, A> Clone for TensorBase<S, A>
 where
     S: Dimension,
-    A: Clone,
+    A: Data,
 {
     fn clone(&self) -> Self {
         TensorBase {

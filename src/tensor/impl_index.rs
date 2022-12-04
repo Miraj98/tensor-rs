@@ -1,6 +1,6 @@
 use std::ops::Index;
 
-use super::{dim::Dimension, OwnedData, TensorBase, ViewData};
+use super::{dim::Dimension, OwnedData, TensorBase, ViewData, Data};
 
 impl<'a, Dtype> Index<usize> for ViewData<'a, Dtype> {
     type Output = Dtype;
@@ -20,7 +20,7 @@ impl<Dtype> Index<usize> for OwnedData<Dtype> {
 
 impl<S: Dimension, A, Dtype> Index<S> for TensorBase<S, A>
 where
-    A: Index<usize, Output = Dtype>,
+    A: Index<usize, Output = Dtype> + Data<Dtype = Dtype>,
 {
     type Output = Dtype;
     fn index(&self, index: S) -> &Self::Output {

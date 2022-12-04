@@ -5,7 +5,7 @@ use crate::{
 use num_integer::Integer;
 use std::mem::{size_of, ManuallyDrop};
 
-use super::{dim::Dimension, impl_constructors::TensorConstructors, Tensor, TensorBase};
+use super::{dim::Dimension, Tensor, TensorBase};
 
 pub fn generate_strides<S>(dim: &S) -> S
 where

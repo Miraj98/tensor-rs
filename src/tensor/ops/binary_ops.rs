@@ -1,10 +1,13 @@
 use std::iter::zip;
 
+use matrixmultiply::sgemm;
+
 use crate::{
     num_taits::{One, Zero},
     prelude::{
         dim::{DimMax, DimMaxOf, Dimension},
-        utils::{merge_backward_ops, reduced_grad}, Tensor, TensorView,
+        utils::{merge_backward_ops, reduced_grad, generate_strides},
+        Tensor, TensorView, TensorBase, Data,
     },
 };
 
@@ -141,6 +144,11 @@ pub trait TensorBinaryOps<Rhs> {
     fn mul(&self, rhs: &Rhs) -> Self::Output;
 }
 
+pub trait Matmul<Rhs> {
+    type Output;
+    fn matmul(&self, rhs: &Rhs) -> Self::Output;
+}
+
 impl<L, R, Dtype> TensorBinaryOps<Tensor<R, Dtype>> for Tensor<L, Dtype>
 where
     R: Dimension + 'static,
@@ -247,9 +255,74 @@ where
     }
 }
 
+impl<A> Matmul<TensorBase<[usize; 2], A>> for TensorBase<[usize; 2], A> where A: Data<Dtype = f32> {
+    type Output = Tensor<[usize; 2], A::Dtype>;
+
+    fn matmul(&self, rhs: &TensorBase<[usize; 2], A>) -> Self::Output {
+        assert!(self.shape()[1] == rhs.shape()[0]);
+        let out_dim = [self.shape()[0], rhs.shape()[1]];
+        let out_strides = generate_strides(&out_dim);
+        let mut o = vec![0.; out_dim[0] * out_dim[1]];
+
+        unsafe {
+            sgemm(
+                self.shape()[0],
+                self.shape()[1],
+                rhs.shape()[1],
+                1.,
+                self.data.as_ptr(),
+                self.strides()[0] as isize,
+                self.strides()[1] as isize,
+                rhs.data.as_ptr(),
+                rhs.strides()[0] as isize,
+                rhs.strides()[1] as isize,
+                0.,
+                o.as_mut_ptr(),
+                out_strides[0] as isize,
+                out_strides[1] as isize,
+            )
+        }
+
+        Tensor::from_vec(o, out_dim)
+    }
+}
+
+impl<A> Matmul<TensorBase<[usize; 2], A>> for &TensorBase<[usize; 2], A> where A: Data<Dtype = f32> {
+    type Output = Tensor<[usize; 2], A::Dtype>;
+
+    fn matmul(&self, rhs: &TensorBase<[usize; 2], A>) -> Self::Output {
+        assert!(self.shape()[1] == rhs.shape()[0]);
+        let out_dim = [self.shape()[0], rhs.shape()[1]];
+        let out_strides = generate_strides(&out_dim);
+        let mut o = vec![0.; out_dim[0] * out_dim[1]];
+
+        unsafe {
+            sgemm(
+                self.shape()[0],
+                self.shape()[1],
+                rhs.shape()[1],
+                1.,
+                self.data.as_ptr(),
+                self.strides()[0] as isize,
+                self.strides()[1] as isize,
+                rhs.data.as_ptr(),
+                rhs.strides()[0] as isize,
+                rhs.strides()[1] as isize,
+                0.,
+                o.as_mut_ptr(),
+                out_strides[0] as isize,
+                out_strides[1] as isize,
+            )
+        }
+
+        Tensor::from_vec(o, out_dim)
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
-    use crate::prelude::{Tensor, ops::binary_ops::TensorBinaryOps};
+    use crate::prelude::{ops::binary_ops::TensorBinaryOps, Tensor};
 
     #[test]
     fn add_tensors() {

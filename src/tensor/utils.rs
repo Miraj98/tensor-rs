@@ -61,7 +61,7 @@ pub fn merge_backward_ops<L, R, Dtype>(
 where
     L: Dimension,
     R: Dimension,
-    Dtype: PartialEq,
+    Dtype: PartialEq + Copy,
 {
     let lhs_ops = lhs.detach_backward_ops();
     let rhs_ops = rhs.detach_backward_ops();

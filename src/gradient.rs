@@ -120,7 +120,7 @@ impl GradientMap {
         Dtype: Zero + One + PartialEq + 'static,
     {
         let t1 = self.mut_grad_by_id(l1.0, l1.1) as *mut Tensor<S, Dtype>;
-        let t2 = self.grad(l2) as *const Tensor<S, Dtype>;
+        let t2 = self.grad_by_id(l2) as *const Tensor<S, Dtype>;
         unsafe { (&mut *t1, &*t2) }
     }
 

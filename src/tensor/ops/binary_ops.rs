@@ -1,4 +1,4 @@
-use std::iter::zip;
+use std::{iter::zip, ops::Mul};
 
 use matrixmultiply::sgemm;
 
@@ -10,6 +10,24 @@ use crate::{
         Data, Tensor, TensorBase, TensorView,
     },
 };
+
+macro_rules! impl_scalar_binary_ops {
+    ($op: ident, $op_trait: ident, $op_symbol: tt) => {
+        impl<S, Dtype> $op_trait<Dtype> for Tensor<S, Dtype>
+        where
+            S: Dimension,
+            Dtype: $op_trait<Dtype, Output = Dtype> + Copy + PartialEq,
+        {
+            type Output = Tensor<S, Dtype>;
+
+            fn $op(self, rhs: Dtype) -> Self::Output {
+                let data: Vec<_> = self.data.iter().map(|x| x.$op(rhs)).collect();
+                let tensor = Tensor::from_vec(data, self.dim.clone());
+                tensor
+            }
+        }
+    };
+}
 
 macro_rules! impl_std_binary_ops {
     ($op: ident, $op_trait: ident, $op_symbol: tt) => {
@@ -108,6 +126,8 @@ macro_rules! impl_std_binary_ops {
 impl_std_binary_ops!(add, Add, +);
 impl_std_binary_ops!(mul, Mul, *);
 impl_std_binary_ops!(sub, Sub, -);
+
+impl_scalar_binary_ops!(mul, Mul, *);
 
 macro_rules! impl_binary_ops_with_broadcast {
     ($lhs: ident, $rhs: ident, $symbol: tt) => {
@@ -335,7 +355,6 @@ mod tests {
         let t2 = Tensor::from_vec(vec![1., 2., 3., 4., 5., 6.], [2, 1, 3]).requires_grad(true);
         let c = t1.add(&t2);
         let grads = c.backward();
-
 
         println!("t1 grad\n{:#?}\n\n", grads.grad(&t1));
         println!("t2 grad\n{:#?}\n\n", grads.grad(&t2));

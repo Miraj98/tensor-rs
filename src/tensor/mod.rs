@@ -1,9 +1,9 @@
 pub mod dim;
 pub mod impl_constructors;
+pub mod impl_eq;
 pub mod impl_index;
 pub mod ops;
 pub mod utils;
-pub mod impl_eq;
 
 use self::dim::Dimension;
 use self::impl_constructors::TensorConstructors;
@@ -14,7 +14,7 @@ use crate::unique_id::{unique_id, UniqueId};
 use std::cell::RefCell;
 use std::cmp::{max, min};
 use std::iter::zip;
-use std::ops::Deref;
+use std::ops::{Deref, Div};
 use std::rc::Rc;
 use std::usize;
 use utils::{generate_strides, tnsr_idx, vec_id};
@@ -24,10 +24,19 @@ pub trait Data: Clone + PartialEq {
 
     fn as_ptr(&self) -> *const Self::Dtype;
     fn map(&self, f: impl Fn(Self::Dtype) -> Self::Dtype) -> OwnedData<Self::Dtype>;
+    fn sum(&self) -> Self::Dtype
+    where
+        Self::Dtype: Zero;
+    fn mean(&self) -> Self::Dtype
+    where
+        Self::Dtype: Zero + Div<f32, Output = Self::Dtype>;
 }
 
 #[derive(Debug)]
-pub struct OwnedData<Dtype> where Dtype: PartialEq {
+pub struct OwnedData<Dtype>
+where
+    Dtype: PartialEq,
+{
     data: Rc<Vec<Dtype>>,
 }
 
@@ -48,6 +57,25 @@ impl<Dtype: PartialEq + Copy> Data for OwnedData<Dtype> {
         let mut result = self.clone();
         result.data = Rc::new(self.data.iter().map(move |x| f(*x)).collect());
         result
+    }
+
+    fn sum(&self) -> Self::Dtype
+    where
+        Self::Dtype: Zero,
+    {
+        self.data
+            .iter()
+            .fold(Self::Dtype::zero(), |acc, x| acc + *x)
+    }
+
+    fn mean(&self) -> Self::Dtype
+    where
+        Self::Dtype: Zero + Div<f32, Output = Self::Dtype>,
+    {
+        self.data
+            .iter()
+            .fold(Self::Dtype::zero(), |acc, x| acc + *x)
+            / self.data.len() as f32
     }
 }
 
@@ -84,7 +112,7 @@ impl<Dtype: PartialEq> PartialEq for ViewData<'_, Dtype> {
 }
 
 impl<Dtype: PartialEq> PartialEq<OwnedData<Dtype>> for ViewData<'_, Dtype> {
-    fn eq(&self, other: &OwnedData<Dtype>)-> bool {
+    fn eq(&self, other: &OwnedData<Dtype>) -> bool {
         let mut is_eq = self.data.len() == other.data.len();
         for (s, o) in zip(self.data.iter(), other.data.iter()) {
             is_eq = is_eq && **s == *o;
@@ -95,7 +123,7 @@ impl<Dtype: PartialEq> PartialEq<OwnedData<Dtype>> for ViewData<'_, Dtype> {
 }
 
 impl<Dtype: PartialEq> PartialEq<ViewData<'_, Dtype>> for OwnedData<Dtype> {
-    fn eq(&self, other: &ViewData<'_, Dtype>)-> bool {
+    fn eq(&self, other: &ViewData<'_, Dtype>) -> bool {
         let mut is_eq = self.data.len() == other.data.len();
         for (s, o) in zip(self.data.iter(), other.data.iter()) {
             is_eq = is_eq && *s == **o;
@@ -116,7 +144,28 @@ where
         a.as_ptr()
     }
     fn map(&self, f: impl Fn(Self::Dtype) -> Self::Dtype) -> OwnedData<Self::Dtype> {
-        OwnedData{ data: Rc::new(self.data.iter().map(|x| f(**x)).collect()) }
+        OwnedData {
+            data: Rc::new(self.data.iter().map(|x| f(**x)).collect()),
+        }
+    }
+
+    fn sum(&self) -> Self::Dtype
+    where
+        Self::Dtype: Zero,
+    {
+        self.data
+            .iter()
+            .fold(Self::Dtype::zero(), |acc, x| acc + **x)
+    }
+
+    fn mean(&self) -> Self::Dtype
+    where
+        Self::Dtype: Zero + Div<f32, Output = Self::Dtype>,
+    {
+        self.data
+            .iter()
+            .fold(Self::Dtype::zero(), |acc, x| acc + **x)
+            / self.data.len() as f32
     }
 }
 
@@ -201,7 +250,7 @@ where
 impl<S, Dtype> TensorBase<S, OwnedData<Dtype>>
 where
     S: Dimension,
-    Dtype: PartialEq + Copy
+    Dtype: PartialEq + Copy,
 {
     pub fn from_vec(a: Vec<Dtype>, dim: S) -> TensorBase<S, OwnedData<Dtype>> {
         let total_len = dim.count();
@@ -216,6 +265,42 @@ where
             is_leaf: true,
             requires_grad: false,
             backward_ops: RefCell::new(None),
+        }
+    }
+
+    pub fn _sum(&self) -> Tensor<[usize; 0], Dtype>
+    where
+        Dtype: Zero,
+    {
+        let data = self.data.sum();
+
+        TensorBase {
+            id: unique_id(),
+            data: OwnedData { data: Rc::new(vec![data]) },
+            dim: [],
+            strides: [],
+            stride_reps: [],
+            backward_ops: RefCell::new(None),
+            is_leaf: false,
+            requires_grad: self.requires_grad,
+        }
+    }
+
+    pub fn _mean(&self) -> Tensor<[usize; 0], Dtype>
+    where
+        Dtype: Zero + Div<f32, Output = Dtype>,
+    {
+        let data = self.data.mean();
+
+        TensorBase {
+            id: unique_id(),
+            data: OwnedData { data: Rc::new(vec![data]) },
+            dim: [],
+            strides: [],
+            stride_reps: [],
+            backward_ops: RefCell::new(None),
+            is_leaf: false,
+            requires_grad: self.requires_grad,
         }
     }
 
@@ -264,7 +349,10 @@ where
         }
     }
 
-    pub fn t(&self) -> TensorBase<S, ViewData<'_, Dtype>> where Dtype: Copy {
+    pub fn t(&self) -> TensorBase<S, ViewData<'_, Dtype>>
+    where
+        Dtype: Copy,
+    {
         let strides = self.strides.rev();
         let dim = self.dim.rev();
         let a = self.data.iter().collect();

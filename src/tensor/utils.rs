@@ -12,8 +12,10 @@ where
     S: Dimension,
 {
     let mut strides = S::ones();
-    for i in (0..dim.ndim() - 1).rev() {
-        strides[i] = dim[i + 1] * strides[i + 1];
+    if dim.ndim() > 0 {
+        for i in (0..dim.ndim() - 1).rev() {
+            strides[i] = dim[i + 1] * strides[i + 1];
+        }
     }
     strides
 }

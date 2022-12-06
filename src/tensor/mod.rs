@@ -6,10 +6,9 @@ pub mod ops;
 pub mod utils;
 
 use self::dim::Dimension;
-use self::impl_constructors::TensorConstructors;
 use self::utils::unlimited_transmute;
-use crate::num_taits::{One, Zero};
-use crate::prelude::{BackwardOps, GradientMap};
+use crate::num_taits::Zero;
+use crate::prelude::BackwardOps;
 use crate::unique_id::{unique_id, UniqueId};
 use std::cell::RefCell;
 use std::cmp::{max, min};

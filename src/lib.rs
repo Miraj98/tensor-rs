@@ -5,6 +5,7 @@ pub mod gradient;
 pub mod impl_methods;
 pub mod impl_traits;
 pub mod impl_binary_ops;
+pub mod impl_unary_ops;
 pub mod impl_constructors;
 
 use std::{
@@ -165,6 +166,7 @@ pub trait DataElement:
     fn zero() -> Self;
     fn is_zero(&self) -> bool;
     fn sigmoid(&self) -> Self;
+    fn relu(&self) -> Self;
     fn from_usize(x: usize) -> Self;
 }
 
@@ -184,6 +186,9 @@ impl DataElement for f32 {
     }
     fn sigmoid(&self) -> Self {
         1. / (1. + (-*self).exp())
+    }
+    fn relu(&self) -> Self {
+        if *self > 0. { *self } else { 0. }
     }
     fn from_usize(x: usize) -> Self {
         x as f32
@@ -206,6 +211,9 @@ impl DataElement for f64 {
     }
     fn sigmoid(&self) -> Self {
         1. / (1. + (-*self).exp())
+    }
+    fn relu(&self) -> Self {
+        if *self > 0. { *self } else { 0. }
     }
     fn from_usize(x: usize) -> Self {
         x as f64

@@ -1,7 +1,7 @@
-use std::{cell::RefCell, ptr::NonNull};
+use std::{cell::RefCell, ptr::NonNull, ops::Index};
 
 use crate::{
-    prelude::{dim::Dimension, utils::{generate_strides, unlimited_transmute}, UniqueId},
+    prelude::{dim::Dimension, utils::{generate_strides, unlimited_transmute, nd_index}, UniqueId},
     unique_id::unique_id,
     DataBuffer, DataElement, OwnedData, Tensor, TensorBase, TensorView, ViewData, gradient::BackwardOps,
 };
@@ -62,6 +62,25 @@ where
             }
         } else {
             None
+        }
+    }
+
+    pub fn map(&self, mut f: impl FnMut(&A::Item) -> A::Item) -> Tensor<S, A::Item>
+    where
+        A: DataBuffer + Index<usize, Output = A::Item>,
+        A::Item: DataElement,
+    {
+        if let Some(slc) = self.as_slice() {
+            let new_data = slc.iter().map(f).collect();
+            Tensor::from_vec(new_data, self.dim.clone())
+        } else {
+            let default_strides = self.default_strides();
+            let mut out_vec = Vec::with_capacity(self.len());
+            for i in 0..self.len() {
+                let idx = nd_index(i, &self.dim, &default_strides);
+                out_vec[i] = f(&self[idx]);
+            }
+            Tensor::from_vec(out_vec, self.dim())
         }
     }
 

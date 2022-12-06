@@ -1,9 +1,9 @@
 use std::{cell::RefCell, ptr::NonNull};
 
 use crate::{
-    prelude::{dim::Dimension, utils::generate_strides},
+    prelude::{dim::Dimension, utils::{generate_strides, unlimited_transmute}, UniqueId},
     unique_id::unique_id,
-    DataBuffer, DataElement, OwnedData, Tensor, TensorBase, TensorView, ViewData,
+    DataBuffer, DataElement, OwnedData, Tensor, TensorBase, TensorView, ViewData, gradient::BackwardOps,
 };
 
 impl<S, Dtype> Tensor<S, Dtype>
@@ -32,8 +32,24 @@ where
     S: Dimension,
     A: DataBuffer,
 {
+    pub(crate) fn id(&self) -> &UniqueId {
+        &self.id
+    }
+
     pub fn len(&self) -> usize {
         self.dim.count()
+    }
+
+    pub fn dim(&self) -> S {
+        self.dim.clone()
+    }
+
+    pub fn ndim(&self) -> usize {
+        self.dim.ndim()
+    }
+
+    pub fn strides(&self) -> S {
+        self.strides.clone()
     }
 
     pub fn as_slice(&self) -> Option<&[A::Item]> {
@@ -47,6 +63,10 @@ where
         } else {
             None
         }
+    }
+
+    pub fn into_dimensionality<D2: Dimension>(&self) -> &TensorBase<D2, A> {
+        unsafe { unlimited_transmute(self) }
     }
 
     pub fn view(&self) -> TensorView<'_, S, A::Item> {
@@ -135,6 +155,14 @@ where
             requires_grad: self.requires_grad,
             backward_ops: RefCell::new(None),
         }
+    }
+
+    pub(crate) fn detach_backward_ops(&self) -> Option<BackwardOps> {
+        self.backward_ops.borrow_mut().take()
+    }
+
+    pub(crate) fn put_backward_ops(&self, backops: Option<BackwardOps>) {
+        *self.backward_ops.borrow_mut() = backops;
     }
 }
 

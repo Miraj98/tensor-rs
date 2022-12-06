@@ -432,26 +432,26 @@ where
         }
     }
 
-    pub fn backward(&self) -> GradientMap
-    where
-        Dtype: Zero + One + 'static,
-        S: Dimension + 'static,
-    {
-        if self.backward_ops.borrow().is_none() {
-            panic!("Use requires_grad(true) to enable gradient computation");
-        }
+    // pub fn backward(&self) -> GradientMap
+    // where
+    //     Dtype: Zero + One + 'static,
+    //     S: Dimension + 'static,
+    // {
+    //     if self.backward_ops.borrow().is_none() {
+    //         panic!("Use requires_grad(true) to enable gradient computation");
+    //     }
 
-        let mut backops = self.detach_backward_ops().unwrap();
-        let id = self.id;
-        let dim = self.dim();
-        backops.add_backward_op(move |grad| {
-            let mut_ref: &mut Tensor<S, Dtype> = grad.mut_grad_by_id(id, dim.clone());
-            *mut_ref = Tensor::ones(dim);
-        });
+    //     let mut backops = self.detach_backward_ops().unwrap();
+    //     let id = self.id;
+    //     let dim = self.dim();
+    //     backops.add_backward_op(move |grad| {
+    //         let mut_ref: &mut Tensor<S, Dtype> = grad.mut_grad_by_id(id, dim.clone());
+    //         *mut_ref = Tensor::ones(dim);
+    //     });
 
-        let grads = backops.execute();
-        grads
-    }
+    //     let grads = backops.execute();
+    //     grads
+    // }
 }
 
 impl<S, A> Clone for TensorBase<S, A>

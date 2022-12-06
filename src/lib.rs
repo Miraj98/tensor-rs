@@ -7,12 +7,13 @@ pub mod impl_traits;
 pub mod impl_binary_ops;
 pub mod impl_unary_ops;
 pub mod impl_constructors;
+pub mod impl_reduce_ops;
 
 use std::{
     marker::PhantomData,
     ops::{Add, AddAssign, Div, Mul, MulAssign, Sub, SubAssign, Index, IndexMut},
     ptr::NonNull,
-    rc::Rc, cell::RefCell,
+    rc::Rc, cell::RefCell, iter::Sum, fmt::Debug,
 };
 
 use crate::unique_id::UniqueId;
@@ -150,6 +151,7 @@ pub trait DataBuffer: Clone + Index<usize> + IndexMut<usize> {
 
 pub trait DataElement:
     PartialEq
+    + Debug
     + Copy
     + Add<Output = Self>
     + AddAssign<Self>

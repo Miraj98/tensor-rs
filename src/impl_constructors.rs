@@ -1,13 +1,14 @@
 use crate::{prelude::dim::Dimension, Tensor, DataElement, TensorBase};
 
 
-pub trait TensorConstructors {
+pub trait TensorConstructors<Dtype> where Dtype: DataElement {
     type S: Dimension;
     fn ones(dim: Self::S) -> Self;
     fn zeros(dim: Self::S) -> Self;
+    fn from_elem(dim: Self::S, elem: Dtype) -> Self;
 }
 
-impl<S, Dtype> TensorConstructors for Tensor<S, Dtype>
+impl<S, Dtype> TensorConstructors<Dtype> for Tensor<S, Dtype>
 where
     S: Dimension,
     Dtype: DataElement,
@@ -15,15 +16,17 @@ where
     type S = S;
 
     fn ones(dim: S) -> Self {
-        let total_len: usize = dim.get_iter().fold(1, |acc, val| acc * *val);
-        println!("total_len: {}", total_len);
-        let a = vec![Dtype::one(); total_len];
+        let a = vec![Dtype::one(); dim.count()];
         TensorBase::from_vec(a, dim)
     }
 
     fn zeros(dim: S) -> Self {
-        let total_len = dim.get_iter().fold(1, |acc, val| acc * *val);
-        let a = vec![Dtype::zero(); total_len];
+        let a = vec![Dtype::zero(); dim.count()];
+        TensorBase::from_vec(a, dim)
+    }
+
+    fn from_elem(dim: S, elem: Dtype) -> Self {
+        let a = vec![elem; dim.count()];
         TensorBase::from_vec(a, dim)
     }
 }

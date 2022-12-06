@@ -3,7 +3,7 @@ use std::{cell::RefCell, ptr::NonNull, ops::Index};
 use crate::{
     prelude::{dim::Dimension, utils::{generate_strides, unlimited_transmute, nd_index}, UniqueId},
     unique_id::unique_id,
-    DataBuffer, DataElement, OwnedData, Tensor, TensorBase, TensorView, ViewData, gradient::BackwardOps,
+    DataBuffer, DataElement, OwnedData, Tensor, TensorBase, TensorView, ViewData, gradient::{BackwardOps, GradientMap}, impl_constructors::TensorConstructors,
 };
 
 impl<S, Dtype> Tensor<S, Dtype>
@@ -24,6 +24,15 @@ where
             requires_grad: false,
             backward_ops: RefCell::new(None),
         }
+    }
+
+    pub fn requires_grad(mut self, b: bool) -> Self {
+        self.requires_grad = b;
+        if b && self.is_leaf && self.backward_ops.borrow().is_none() {
+            *self.backward_ops.borrow_mut() = Some(BackwardOps(Vec::new()));
+        }
+
+        self
     }
 }
 
@@ -182,6 +191,27 @@ where
 
     pub(crate) fn put_backward_ops(&self, backops: Option<BackwardOps>) {
         *self.backward_ops.borrow_mut() = backops;
+    }
+}
+
+impl<A> TensorBase<[usize; 0], A> where A: DataBuffer {
+    pub fn backward(&self) -> GradientMap
+    where A::Item: 'static
+    {
+        if self.backward_ops.borrow().is_none() {
+            panic!("Use requires_grad(true) to enable gradient computation");
+        }
+
+        let mut backops = self.detach_backward_ops().unwrap();
+        let id = self.id;
+        let dim = self.dim();
+        backops.add_backward_op(move |grad| {
+            let mut_ref: &mut Tensor<[usize; 0], A::Item> = grad.mut_grad_by_id(id, dim.clone());
+            *mut_ref = Tensor::ones(dim);
+        });
+
+        let grads = backops.execute();
+        grads
     }
 }
 

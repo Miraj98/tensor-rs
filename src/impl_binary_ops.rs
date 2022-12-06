@@ -30,7 +30,7 @@ macro_rules! impl_binary_ops {
                 let mut out_vec = Vec::with_capacity(self.len());
                 for i in 0..self.len() {
                     let idx = nd_index(i, &strides);
-                    out_vec[i] = self[idx.clone()].$math(rhs[idx]);
+                    out_vec.push(self[idx.clone()].$math(rhs[idx]));
                 }
 
                 TensorBase {
@@ -60,7 +60,7 @@ macro_rules! impl_binary_ops {
                 let mut out_vec = Vec::with_capacity(self.len());
                 for i in 0..self.len() {
                     let idx = nd_index(i, &strides);
-                    out_vec[i] = self[idx.clone()].$math(rhs[idx]);
+                    out_vec.push(self[idx.clone()].$math(rhs[idx]));
                 }
 
                 TensorBase {
@@ -90,7 +90,7 @@ macro_rules! impl_binary_ops {
                 let mut out_vec = Vec::with_capacity(self.len());
                 for i in 0..self.len() {
                     let idx = nd_index(i, &strides);
-                    out_vec[i] = self[idx.clone()].$math(rhs[idx]);
+                    out_vec.push(self[idx.clone()].$math(rhs[idx]));
                 }
 
                 TensorBase {
@@ -120,7 +120,7 @@ macro_rules! impl_binary_ops {
                 let mut out_vec = Vec::with_capacity(self.len());
                 for i in 0..self.len() {
                     let idx = nd_index(i, &strides);
-                    out_vec[i] = self[idx.clone()].$math(rhs[idx]);
+                    out_vec.push(self[idx.clone()].$math(rhs[idx]));
                 }
 
                 TensorBase {
@@ -147,7 +147,7 @@ macro_rules! impl_binary_ops {
                 let mut out_vec = Vec::with_capacity(self.len());
                 for i in 0..self.len() {
                     let idx = nd_index(i, &strides);
-                    out_vec[i] = self[idx].$math(rhs);
+                    out_vec.push(self[idx].$math(rhs));
                 }
 
                 TensorBase {
@@ -174,7 +174,7 @@ macro_rules! impl_binary_ops {
                 let mut out_vec = Vec::with_capacity(self.len());
                 for i in 0..self.len() {
                     let idx = nd_index(i, &strides);
-                    out_vec[i] = self[idx].$math(rhs);
+                    out_vec.push(self[idx].$math(rhs));
                 }
 
                 TensorBase {
@@ -201,7 +201,7 @@ macro_rules! impl_binary_ops {
                 let mut out_vec = Vec::with_capacity(self.len());
                 for i in 0..self.len() {
                     let idx = nd_index(i, &strides);
-                    out_vec[i] = self[idx].$math(rhs);
+                    out_vec.push(self[idx].$math(rhs));
                 }
 
                 TensorBase {
@@ -228,7 +228,7 @@ macro_rules! impl_binary_ops {
                 let mut out_vec = Vec::with_capacity(self.len());
                 for i in 0..self.len() {
                     let idx = nd_index(i, &strides);
-                    out_vec[i] = self[idx].$math(rhs);
+                    out_vec.push(self[idx].$math(rhs));
                 }
 
                 TensorBase {

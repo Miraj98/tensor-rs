@@ -1,6 +1,5 @@
 use crate::{
     prelude::{dim::Dimension, utils::nd_index},
-    unique_id::unique_id,
     DataBuffer, TensorBase, DataElement, Tensor, TensorView,
 };
 use std::{cell::RefCell, ops::Index};
@@ -32,7 +31,7 @@ where
 {
     fn clone(&self) -> Self {
         TensorBase {
-            id: unique_id(),
+            id: self.id,
             data: self.data.clone(),
             dim: self.dim.clone(),
             strides: self.strides.clone(),
@@ -50,6 +49,37 @@ where
     A: DataElement,
 {
     fn eq(&self, other: &Tensor<S2, A>) -> bool {
+        if self.shape() != other.shape() {
+            return false;
+        }
+
+        if let Some(self_s) = self.as_slice() {
+            if let Some(rhs_s) = other.as_slice() {
+                return self_s == rhs_s;
+            }
+        }
+
+        let lhs_default_strides = self.default_strides();
+        let rhs_default_strides = other.default_strides();
+        for i in 0..self.len() {
+            let l = nd_index(i, &lhs_default_strides);
+            let r = nd_index(i, &rhs_default_strides);
+            if self[l] != other[r] {
+                return false;
+            }
+        }
+
+        true
+    }
+}
+
+impl<'a, S, S2, A> PartialEq<&'a Tensor<S2, A>> for Tensor<S, A>
+where
+    S: Dimension,
+    S2: Dimension,
+    A: DataElement,
+{
+    fn eq(&self, other: &&'a Tensor<S2, A>) -> bool {
         if self.shape() != other.shape() {
             return false;
         }

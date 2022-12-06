@@ -125,6 +125,62 @@ macro_rules! impl_binary_ops {
                 }
             }
         }
+
+        impl <S, A, E> $trait<E> for TensorBase<S, A>
+        where
+            S: Dimension,
+            E: DataElement,
+            A: DataBuffer<Item = E> + Index<usize, Output = E>,
+        {
+            type Output = Tensor<S, E>;
+
+            fn $math(self, rhs: E) -> Self::Output {
+                let strides = self.default_strides();
+                let mut out_vec = Vec::with_capacity(self.len());
+                for i in 0..self.len() {
+                    let idx = nd_index(i, &self.dim, &strides);
+                    out_vec[i] = self[idx].$math(rhs);
+                }
+
+                TensorBase {
+                    id: unique_id(),
+                    data: OwnedData::new(out_vec),
+                    dim: self.dim.clone(),
+                    strides,
+                    is_leaf: false,
+                    requires_grad: self.requires_grad,
+                    backward_ops: RefCell::new(None),
+                }
+            }
+        }
+
+        impl <'a, S, A, E> $trait<E> for &'a TensorBase<S, A>
+        where
+            S: Dimension,
+            E: DataElement,
+            A: DataBuffer<Item = E> + Index<usize, Output = E>,
+        {
+            type Output = Tensor<S, E>;
+
+            fn $math(self, rhs: E) -> Self::Output {
+                let strides = self.default_strides();
+                let mut out_vec = Vec::with_capacity(self.len());
+                for i in 0..self.len() {
+                    let idx = nd_index(i, &self.dim, &strides);
+                    out_vec[i] = self[idx].$math(rhs);
+                }
+
+                TensorBase {
+                    id: unique_id(),
+                    data: OwnedData::new(out_vec),
+                    dim: self.dim.clone(),
+                    strides,
+                    is_leaf: false,
+                    requires_grad: self.requires_grad,
+                    backward_ops: RefCell::new(None),
+                }
+            }
+        }
     };
 }
 

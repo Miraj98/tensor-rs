@@ -3,10 +3,11 @@ pub mod tensor;
 pub mod gradient;
 
 pub mod impl_methods;
+pub mod impl_traits;
 
 use std::{
     marker::PhantomData,
-    ops::{Add, AddAssign, Div, Mul, MulAssign, Sub, SubAssign},
+    ops::{Add, AddAssign, Div, Mul, MulAssign, Sub, SubAssign, Index, IndexMut},
     ptr::NonNull,
     rc::Rc, cell::RefCell,
 };
@@ -61,6 +62,22 @@ impl<E: DataElement> Clone for OwnedData<E> {
     }
 }
 
+impl<E: DataElement> Index<usize> for OwnedData<E> {
+    type Output = E;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.data[index]
+    }
+}
+
+impl<E: DataElement> IndexMut<usize> for OwnedData<E> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        unsafe {
+            &mut *self.as_mut_ptr().offset(index as isize)
+        }
+    }
+}
+
 impl<E: DataElement> DataBuffer for OwnedData<E> {
     type Item = E;
 
@@ -73,6 +90,7 @@ impl<E: DataElement> DataBuffer for OwnedData<E> {
     }
 }
 
+#[derive(Debug)]
 pub struct ViewData<'a, E>
 where
     E: DataElement,
@@ -90,6 +108,24 @@ impl<'a, E: DataElement> Clone for ViewData<'a, E> {
     }
 }
 
+impl<'a, E: DataElement> Index<usize> for ViewData<'a, E> {
+    type Output = E;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        unsafe {
+            &*self.as_ptr().offset(index as isize) as &Self::Output
+        }
+    }
+}
+
+impl<'a, E: DataElement> IndexMut<usize> for ViewData<'a, E> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        unsafe {
+            &mut *self.as_mut_ptr().offset(index as isize)
+        }
+    }
+}
+
 impl<'a, E: DataElement> DataBuffer for ViewData<'a, E> {
     type Item = E;
 
@@ -102,7 +138,7 @@ impl<'a, E: DataElement> DataBuffer for ViewData<'a, E> {
     }
 }
 
-pub trait DataBuffer: Clone {
+pub trait DataBuffer: Clone + Index<usize> + IndexMut<usize> {
     type Item: DataElement;
 
     fn as_ptr(&self) -> *const Self::Item;

@@ -37,6 +37,14 @@ where
     idx
 }
 
+pub fn nd_index<S>(id: usize, dim: &S) -> S
+where
+    S: Dimension,
+{
+   let strides = generate_strides(dim); 
+   tnsr_idx(id, &strides)
+}
+
 pub fn vec_id<S>(tnsr_idx: S, dims: &S, strides: &S) -> usize
 where
     S: Dimension,

@@ -29,7 +29,7 @@ macro_rules! impl_binary_ops {
                 let strides = self.default_strides();
                 let mut out_vec = Vec::with_capacity(self.len());
                 for i in 0..self.len() {
-                    let idx = nd_index(i, &self.dim, &strides);
+                    let idx = nd_index(i, &strides);
                     out_vec[i] = self[idx.clone()].$math(rhs[idx]);
                 }
 
@@ -59,7 +59,7 @@ macro_rules! impl_binary_ops {
                 let strides = self.default_strides();
                 let mut out_vec = Vec::with_capacity(self.len());
                 for i in 0..self.len() {
-                    let idx = nd_index(i, &self.dim, &strides);
+                    let idx = nd_index(i, &strides);
                     out_vec[i] = self[idx.clone()].$math(rhs[idx]);
                 }
 
@@ -89,7 +89,7 @@ macro_rules! impl_binary_ops {
                 let strides = self.default_strides();
                 let mut out_vec = Vec::with_capacity(self.len());
                 for i in 0..self.len() {
-                    let idx = nd_index(i, &self.dim, &strides);
+                    let idx = nd_index(i, &strides);
                     out_vec[i] = self[idx.clone()].$math(rhs[idx]);
                 }
 
@@ -119,7 +119,7 @@ macro_rules! impl_binary_ops {
                 let strides = self.default_strides();
                 let mut out_vec = Vec::with_capacity(self.len());
                 for i in 0..self.len() {
-                    let idx = nd_index(i, &self.dim, &strides);
+                    let idx = nd_index(i, &strides);
                     out_vec[i] = self[idx.clone()].$math(rhs[idx]);
                 }
 
@@ -146,7 +146,7 @@ macro_rules! impl_binary_ops {
                 let strides = self.default_strides();
                 let mut out_vec = Vec::with_capacity(self.len());
                 for i in 0..self.len() {
-                    let idx = nd_index(i, &self.dim, &strides);
+                    let idx = nd_index(i, &strides);
                     out_vec[i] = self[idx].$math(rhs);
                 }
 
@@ -173,7 +173,7 @@ macro_rules! impl_binary_ops {
                 let strides = self.default_strides();
                 let mut out_vec = Vec::with_capacity(self.len());
                 for i in 0..self.len() {
-                    let idx = nd_index(i, &self.dim, &strides);
+                    let idx = nd_index(i, &strides);
                     out_vec[i] = self[idx].$math(rhs);
                 }
 
@@ -200,7 +200,7 @@ macro_rules! impl_binary_ops {
                 let strides = self.default_strides();
                 let mut out_vec = Vec::with_capacity(self.len());
                 for i in 0..self.len() {
-                    let idx = nd_index(i, &self.dim, &strides);
+                    let idx = nd_index(i, &strides);
                     out_vec[i] = self[idx].$math(rhs);
                 }
 
@@ -227,7 +227,7 @@ macro_rules! impl_binary_ops {
                 let strides = self.default_strides();
                 let mut out_vec = Vec::with_capacity(self.len());
                 for i in 0..self.len() {
-                    let idx = nd_index(i, &self.dim, &strides);
+                    let idx = nd_index(i, &strides);
                     out_vec[i] = self[idx].$math(rhs);
                 }
 

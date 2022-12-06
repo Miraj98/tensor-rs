@@ -38,7 +38,7 @@ where
     idx
 }
 
-pub fn nd_index<S>(id: usize, dim: &S, default_strides: &S) -> S
+pub fn nd_index<S>(id: usize, default_strides: &S) -> S
 where
     S: Dimension,
 {

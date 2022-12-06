@@ -63,8 +63,8 @@ where
         let lhs_default_strides = self.default_strides();
         let rhs_default_strides = other.default_strides();
         for i in 0..self.len() {
-            let l = nd_index(i, &self.dim, &lhs_default_strides);
-            let r = nd_index(i, &other.dim, &rhs_default_strides);
+            let l = nd_index(i, &lhs_default_strides);
+            let r = nd_index(i, &rhs_default_strides);
             if self[l] != other[r] {
                 return false;
             }
@@ -96,8 +96,8 @@ where
         let lhs_default_strides = self.default_strides();
         let rhs_default_strides = other.default_strides();
         for i in 0..self.len() {
-            let l = nd_index(i, &self.dim, &lhs_default_strides);
-            let r = nd_index(i, &other.dim, &rhs_default_strides);
+            let l = nd_index(i, &lhs_default_strides);
+            let r = nd_index(i, &rhs_default_strides);
             if self[l] != other[r] {
                 return false;
             }
@@ -127,8 +127,8 @@ where
         let lhs_default_strides = self.default_strides();
         let rhs_default_strides = other.default_strides();
         for i in 0..self.len() {
-            let l = nd_index(i, &self.dim, &lhs_default_strides);
-            let r = nd_index(i, &other.dim, &rhs_default_strides);
+            let l = nd_index(i, &lhs_default_strides);
+            let r = nd_index(i, &rhs_default_strides);
             if self[l] != other[r] {
                 return false;
             }
@@ -158,8 +158,8 @@ where
         let lhs_default_strides = self.default_strides();
         let rhs_default_strides = other.default_strides();
         for i in 0..self.len() {
-            let l = nd_index(i, &self.dim, &lhs_default_strides);
-            let r = nd_index(i, &other.dim, &rhs_default_strides);
+            let l = nd_index(i, &lhs_default_strides);
+            let r = nd_index(i, &rhs_default_strides);
             if self[l] != other[r] {
                 return false;
             }

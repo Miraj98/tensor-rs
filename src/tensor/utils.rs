@@ -1,5 +1,5 @@
 use crate::{
-    prelude::{BackwardOps, Merge}, DataElement,
+    prelude::{BackwardOps, Merge}, DataElement, DataBuffer,
 };
 use crate::{Tensor, TensorBase};
 use num_integer::Integer;
@@ -64,14 +64,14 @@ pub unsafe fn unlimited_transmute<A, B>(data: A) -> B {
     (&*old_data as *const A as *const B).read()
 }
 
-pub fn merge_backward_ops<L, R, Dtype>(
-    lhs: &Tensor<L, Dtype>,
-    rhs: &Tensor<R, Dtype>,
+pub fn merge_backward_ops<L, R, A>(
+    lhs: &TensorBase<L, A>,
+    rhs: &TensorBase<R, A>,
 ) -> Option<BackwardOps>
 where
     L: Dimension,
     R: Dimension,
-    Dtype: DataElement
+    A: DataBuffer
 {
     let lhs_ops = lhs.detach_backward_ops();
     let rhs_ops = rhs.detach_backward_ops();

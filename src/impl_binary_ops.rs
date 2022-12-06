@@ -400,7 +400,7 @@ impl<A> TensorBase<[usize; 2], A>
 where
     A: DataBuffer<Item = f32>,
 {
-    fn dot<B>(&self, rhs: &TensorBase<[usize; 2], B>) -> Tensor<[usize; 2], A::Item>
+    pub fn dot<B>(&self, rhs: &TensorBase<[usize; 2], B>) -> Tensor<[usize; 2], A::Item>
     where
         B: DataBuffer<Item = f32>,
     {
@@ -432,5 +432,34 @@ where
         }
 
         Tensor::from_vec(o, out_dim)
+    }
+}
+
+impl<A> Matmul<TensorBase<[usize; 2], A>> for TensorBase<[usize; 2], A> where A: DataBuffer<Item = f32> + 'static {
+    type Output = Tensor<[usize; 2], f32>;
+
+    fn matmul(&self, rhs: &TensorBase<[usize; 2], A>) -> Self::Output {
+        let mut backops = merge_backward_ops(self, rhs);
+        let out = self.dot(rhs);
+
+        let out_id = out.id;
+        let lhs_clone = self.clone();
+        let rhs_clone = rhs.clone();
+        backops.as_mut().unwrap().add_backward_op(move |grad| {
+            let (grad_lhs, grad_rhs, grad_out): (
+                &mut Tensor<_, f32>,
+                &mut Tensor<_, f32>,
+                &Tensor<[usize; 2], f32>,
+            ) = grad.mmr_grad(
+                (lhs_clone.id, lhs_clone.dim()),
+                (rhs_clone.id, rhs_clone.dim()),
+                out_id,
+            );
+            *grad_lhs = grad_lhs.clone() + grad_out.dot(&rhs_clone.t());
+            *grad_rhs = grad_rhs.clone() + &lhs_clone.t().dot(grad_out);
+        });
+
+        out.put_backward_ops(backops);
+        out
     }
 }

@@ -26,6 +26,8 @@ pub trait Dimension:
 
     fn ndim(&self) -> usize;
     fn shape(&self) -> &[usize];
+    fn slice(&self) -> &[usize];
+    fn slice_mut(&mut self) -> &mut [usize];
     fn rev(&self) -> Self;
     fn count(&self) -> usize;
     fn into_dimensionality<D2>(&self) -> D2 where D2: Dimension;
@@ -43,6 +45,14 @@ impl<const D: usize> Dimension for [usize; D] {
 
     fn shape(&self) -> &[usize] {
         &self[..]
+    }
+
+    fn slice(&self) -> &[usize] {
+        &self[..]
+    }
+
+    fn slice_mut(&mut self) -> &mut [usize] {
+        &mut self[..]
     }
 
     fn rev(&self) -> Self {

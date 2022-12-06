@@ -1,5 +1,5 @@
 use crate::{
-    prelude::{dim::Dimension, utils::nd_index},
+    dim::Dimension, utils::nd_index,
     DataBuffer, TensorBase, DataElement, Tensor, TensorView,
 };
 use std::{cell::RefCell, ops::Index};

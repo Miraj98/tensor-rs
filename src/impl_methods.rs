@@ -1,7 +1,7 @@
 use std::{cell::RefCell, ptr::NonNull, ops::Index};
 
 use crate::{
-    prelude::{dim::Dimension, utils::{generate_strides, unlimited_transmute, nd_index}, UniqueId},
+    dim::Dimension, utils::{generate_strides, unlimited_transmute, nd_index}, UniqueId,
     unique_id::unique_id,
     DataBuffer, DataElement, OwnedData, Tensor, TensorBase, TensorView, ViewData, gradient::{BackwardOps, GradientMap}, impl_constructors::TensorConstructors,
 };

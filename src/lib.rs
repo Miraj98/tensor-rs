@@ -1,6 +1,7 @@
 pub mod unique_id;
-pub mod tensor;
 pub mod gradient;
+pub mod dim;
+pub mod utils;
 
 pub mod impl_methods;
 pub mod impl_traits;
@@ -13,18 +14,17 @@ use std::{
     marker::PhantomData,
     ops::{Add, AddAssign, Div, Mul, MulAssign, Sub, SubAssign, Index, IndexMut},
     ptr::NonNull,
-    rc::Rc, cell::RefCell, iter::Sum, fmt::Debug,
+    rc::Rc, cell::RefCell, fmt::Debug,
 };
 
 use crate::unique_id::UniqueId;
-use crate::tensor::dim::Dimension;
+use crate::dim::Dimension;
 use crate::gradient::BackwardOps;
 
 pub mod num_taits;
 
 pub mod prelude {
     pub use crate::gradient::*;
-    pub use crate::tensor::*;
     pub use crate::unique_id::*;
 }
 

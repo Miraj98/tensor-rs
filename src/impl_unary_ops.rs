@@ -1,4 +1,4 @@
-use crate::{TensorBase, OwnedData, prelude::dim::Dimension, Tensor, DataElement};
+use crate::{TensorBase, OwnedData, dim::Dimension, Tensor, DataElement};
 
 pub trait TensorUnaryOps {
     fn sigmoid(&self) -> Self;

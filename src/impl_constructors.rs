@@ -1,4 +1,4 @@
-use crate::{prelude::dim::Dimension, Tensor, DataElement, TensorBase};
+use crate::{dim::Dimension, Tensor, DataElement, TensorBase};
 
 
 pub trait TensorConstructors<Dtype> where Dtype: DataElement {

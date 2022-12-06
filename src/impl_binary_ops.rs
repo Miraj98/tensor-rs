@@ -1,12 +1,10 @@
 use matrixmultiply::sgemm;
 
 use crate::{
-    prelude::{
-        dim::{DimMax, DimMaxOf, Dimension},
-        utils::{merge_backward_ops, nd_index, reduced_grad, generate_strides},
-    },
+    dim::{DimMax, DimMaxOf, Dimension},
     unique_id::unique_id,
-    DataBuffer, DataElement, OwnedData, Tensor, TensorView, TensorBase,
+    utils::{generate_strides, merge_backward_ops, nd_index, reduced_grad},
+    DataBuffer, DataElement, OwnedData, Tensor, TensorBase, TensorView,
 };
 use std::{
     cell::RefCell,
@@ -435,7 +433,10 @@ where
     }
 }
 
-impl<A> Matmul<TensorBase<[usize; 2], A>> for TensorBase<[usize; 2], A> where A: DataBuffer<Item = f32> + 'static {
+impl<A> Matmul<TensorBase<[usize; 2], A>> for TensorBase<[usize; 2], A>
+where
+    A: DataBuffer<Item = f32> + 'static,
+{
     type Output = Tensor<[usize; 2], f32>;
 
     fn matmul(&self, rhs: &TensorBase<[usize; 2], A>) -> Self::Output {

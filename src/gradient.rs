@@ -1,5 +1,5 @@
 use crate::{
-    prelude::{dim::Dimension},
+    dim::Dimension,
     unique_id::UniqueId, DataElement, impl_constructors::TensorConstructors,
 };
 use crate::Tensor;

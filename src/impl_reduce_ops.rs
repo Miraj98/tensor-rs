@@ -1,7 +1,7 @@
 use std::{iter::Sum, ops::Index};
 
 use crate::{
-    impl_constructors::TensorConstructors, prelude::{dim::Dimension, utils::nd_index}, DataBuffer, DataElement,
+    impl_constructors::TensorConstructors, dim::Dimension, utils::nd_index, DataBuffer, DataElement,
     Tensor, TensorBase,
 };
 

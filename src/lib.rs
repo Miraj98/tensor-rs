@@ -4,6 +4,7 @@ pub mod gradient;
 
 pub mod impl_methods;
 pub mod impl_traits;
+pub mod impl_binary_ops;
 
 use std::{
     marker::PhantomData,

@@ -68,6 +68,10 @@ where
         self.strides.slice() == generate_strides(&self.dim).slice()
     }
 
+    pub fn default_strides(&self) -> S {
+        generate_strides(&self.dim)
+    }
+
     pub fn t(&self) -> TensorView<'_, S, A::Item> {
         let mut self_view = self.view();
         let strides = self.strides.rev();

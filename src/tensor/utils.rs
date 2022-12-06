@@ -37,12 +37,11 @@ where
     idx
 }
 
-pub fn nd_index<S>(id: usize, dim: &S) -> S
+pub fn nd_index<S>(id: usize, dim: &S, default_strides: &S) -> S
 where
     S: Dimension,
 {
-   let strides = generate_strides(dim); 
-   tnsr_idx(id, &strides)
+   tnsr_idx(id, default_strides)
 }
 
 pub fn vec_id<S>(tnsr_idx: S, dims: &S, strides: &S) -> usize

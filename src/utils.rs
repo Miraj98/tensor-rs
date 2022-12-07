@@ -64,14 +64,15 @@ pub unsafe fn unlimited_transmute<A, B>(data: A) -> B {
     (&*old_data as *const A as *const B).read()
 }
 
-pub fn merge_backward_ops<L, R, A>(
+pub fn merge_backward_ops<L, R, A, B, E>(
     lhs: &TensorBase<L, A>,
-    rhs: &TensorBase<R, A>,
+    rhs: &TensorBase<R, B>,
 ) -> Option<BackwardOps>
 where
     L: Dimension,
     R: Dimension,
-    A: DataBuffer
+    A: DataBuffer<Item = E>,
+    B: DataBuffer<Item = E>,
 {
     let lhs_ops = lhs.detach_backward_ops();
     let rhs_ops = rhs.detach_backward_ops();

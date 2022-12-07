@@ -1,16 +1,12 @@
-use crate::{
-    dim::Dimension, utils::nd_index,
-    DataBuffer, TensorBase, DataElement, Tensor, TensorView,
-};
+use crate::{dim::Dimension, utils::nd_index, DataElement, Tensor, TensorBase, TensorView, DataBuffer};
 use std::{cell::RefCell, ops::Index};
 
-impl<S, A, E> Index<S> for TensorBase<S, A>
+impl<S, A> Index<S> for TensorBase<S, A>
 where
     S: Dimension,
-    E: DataElement,
-    A: DataBuffer<Item = E> + Index<usize, Output = E>,
+    A: DataBuffer,
 {
-    type Output = E;
+    type Output = A::Item;
 
     fn index(&self, index: S) -> &Self::Output {
         assert_eq!(self.strides.slice().len(), index.slice().len());
@@ -20,7 +16,7 @@ where
             .iter()
             .zip(index.slice().iter())
             .fold(0, |acc, (stride, index)| acc + stride * index);
-        &self.data[i]
+        unsafe { self.ptr.as_ptr().add(i).as_ref().unwrap() }
     }
 }
 
@@ -32,6 +28,7 @@ where
     fn clone(&self) -> Self {
         TensorBase {
             id: self.id,
+            ptr: self.ptr,
             data: self.data.clone(),
             dim: self.dim.clone(),
             strides: self.strides.clone(),
@@ -113,7 +110,11 @@ where
     fn eq(&self, other: &TensorView<'a, S2, A>) -> bool {
         println!("eq being called");
         if self.shape() != other.shape() {
-            println!("Shapes are not equal {:?}, {:?}", self.shape(), other.shape());
+            println!(
+                "Shapes are not equal {:?}, {:?}",
+                self.shape(),
+                other.shape()
+            );
             return false;
         }
 

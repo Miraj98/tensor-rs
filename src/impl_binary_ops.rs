@@ -2,14 +2,10 @@ use matrixmultiply::sgemm;
 
 use crate::{
     dim::{DimMax, DimMaxOf, Dimension},
-    unique_id::unique_id,
     utils::{generate_strides, merge_backward_ops, nd_index, reduced_grad},
-    DataBuffer, DataElement, OwnedData, Tensor, TensorBase, TensorView,
+    DataBuffer, DataElement, Tensor, TensorBase, TensorView,
 };
-use std::{
-    cell::RefCell,
-    ops::{Add, Div, Index, Mul, Sub},
-};
+use std::ops::{Add, Div, Mul, Sub};
 
 macro_rules! impl_binary_ops {
     ($math: ident, $trait: ident) => {
@@ -17,8 +13,8 @@ macro_rules! impl_binary_ops {
         where
             S: Dimension,
             E: DataElement,
-            A: DataBuffer<Item = E> + Index<usize, Output = E>,
-            B: DataBuffer<Item = E> + Index<usize, Output = E>,
+            A: DataBuffer<Item = E>,
+            B: DataBuffer<Item = E>,
         {
             type Output = Tensor<S, E>;
 
@@ -31,15 +27,7 @@ macro_rules! impl_binary_ops {
                     out_vec.push(self[idx.clone()].$math(rhs[idx]));
                 }
 
-                TensorBase {
-                    id: unique_id(),
-                    data: OwnedData::new(out_vec),
-                    dim: self.dim.clone(),
-                    strides,
-                    is_leaf: false,
-                    requires_grad: self.requires_grad,
-                    backward_ops: RefCell::new(None),
-                }
+                Tensor::from_vec(out_vec, self.dim.clone()).leaf(false)
             }
         }
 
@@ -47,8 +35,8 @@ macro_rules! impl_binary_ops {
         where
             S: Dimension,
             E: DataElement,
-            A: DataBuffer<Item = E> + Index<usize, Output = E>,
-            B: DataBuffer<Item = E> + Index<usize, Output = E>,
+            A: DataBuffer<Item = E>,
+            B: DataBuffer<Item = E>,
         {
             type Output = Tensor<S, E>;
 
@@ -61,15 +49,7 @@ macro_rules! impl_binary_ops {
                     out_vec.push(self[idx.clone()].$math(rhs[idx]));
                 }
 
-                TensorBase {
-                    id: unique_id(),
-                    data: OwnedData::new(out_vec),
-                    dim: self.dim.clone(),
-                    strides,
-                    is_leaf: false,
-                    requires_grad: self.requires_grad,
-                    backward_ops: RefCell::new(None),
-                }
+                Tensor::from_vec(out_vec, self.dim.clone()).leaf(false)
             }
         }
 
@@ -77,8 +57,8 @@ macro_rules! impl_binary_ops {
         where
             S: Dimension,
             E: DataElement,
-            A: DataBuffer<Item = E> + Index<usize, Output = E>,
-            B: DataBuffer<Item = E> + Index<usize, Output = E>,
+            A: DataBuffer<Item = E>,
+            B: DataBuffer<Item = E>,
         {
             type Output = Tensor<S, E>;
 
@@ -91,15 +71,7 @@ macro_rules! impl_binary_ops {
                     out_vec.push(self[idx.clone()].$math(rhs[idx]));
                 }
 
-                TensorBase {
-                    id: unique_id(),
-                    data: OwnedData::new(out_vec),
-                    dim: self.dim.clone(),
-                    strides,
-                    is_leaf: false,
-                    requires_grad: self.requires_grad,
-                    backward_ops: RefCell::new(None),
-                }
+                Tensor::from_vec(out_vec, self.dim.clone()).leaf(false)
             }
         }
 
@@ -107,8 +79,8 @@ macro_rules! impl_binary_ops {
         where
             S: Dimension,
             E: DataElement,
-            A: DataBuffer<Item = E> + Index<usize, Output = E>,
-            B: DataBuffer<Item = E> + Index<usize, Output = E>,
+            A: DataBuffer<Item = E>,
+            B: DataBuffer<Item = E>,
         {
             type Output = Tensor<S, E>;
 
@@ -121,22 +93,14 @@ macro_rules! impl_binary_ops {
                     out_vec.push(self[idx.clone()].$math(rhs[idx]));
                 }
 
-                TensorBase {
-                    id: unique_id(),
-                    data: OwnedData::new(out_vec),
-                    dim: self.dim.clone(),
-                    strides,
-                    is_leaf: false,
-                    requires_grad: self.requires_grad,
-                    backward_ops: RefCell::new(None),
-                }
+                Tensor::from_vec(out_vec, self.dim.clone()).leaf(false)
             }
         }
 
         impl<S, A> $trait<f32> for TensorBase<S, A>
         where
             S: Dimension,
-            A: DataBuffer<Item = f32> + Index<usize, Output = f32>,
+            A: DataBuffer<Item = f32>,
         {
             type Output = Tensor<S, f32>;
 
@@ -148,22 +112,14 @@ macro_rules! impl_binary_ops {
                     out_vec.push(self[idx].$math(rhs));
                 }
 
-                TensorBase {
-                    id: unique_id(),
-                    data: OwnedData::new(out_vec),
-                    dim: self.dim.clone(),
-                    strides,
-                    is_leaf: false,
-                    requires_grad: self.requires_grad,
-                    backward_ops: RefCell::new(None),
-                }
+                Tensor::from_vec(out_vec, self.dim.clone()).leaf(false)
             }
         }
 
         impl<S, A> $trait<f64> for TensorBase<S, A>
         where
             S: Dimension,
-            A: DataBuffer<Item = f64> + Index<usize, Output = f64>,
+            A: DataBuffer<Item = f64>,
         {
             type Output = Tensor<S, f64>;
 
@@ -175,22 +131,14 @@ macro_rules! impl_binary_ops {
                     out_vec.push(self[idx].$math(rhs));
                 }
 
-                TensorBase {
-                    id: unique_id(),
-                    data: OwnedData::new(out_vec),
-                    dim: self.dim.clone(),
-                    strides,
-                    is_leaf: false,
-                    requires_grad: self.requires_grad,
-                    backward_ops: RefCell::new(None),
-                }
+                Tensor::from_vec(out_vec, self.dim.clone()).leaf(false)
             }
         }
 
         impl<'a, S, A> $trait<f32> for &'a TensorBase<S, A>
         where
             S: Dimension,
-            A: DataBuffer<Item = f32> + Index<usize, Output = f32>,
+            A: DataBuffer<Item = f32>,
         {
             type Output = Tensor<S, f32>;
 
@@ -202,22 +150,14 @@ macro_rules! impl_binary_ops {
                     out_vec.push(self[idx].$math(rhs));
                 }
 
-                TensorBase {
-                    id: unique_id(),
-                    data: OwnedData::new(out_vec),
-                    dim: self.dim.clone(),
-                    strides,
-                    is_leaf: false,
-                    requires_grad: self.requires_grad,
-                    backward_ops: RefCell::new(None),
-                }
+                Tensor::from_vec(out_vec, self.dim.clone()).leaf(false)
             }
         }
 
         impl<'a, S, A> $trait<f64> for &'a TensorBase<S, A>
         where
             S: Dimension,
-            A: DataBuffer<Item = f64> + Index<usize, Output = f64>,
+            A: DataBuffer<Item = f64>,
         {
             type Output = Tensor<S, f64>;
 
@@ -229,15 +169,7 @@ macro_rules! impl_binary_ops {
                     out_vec.push(self[idx].$math(rhs));
                 }
 
-                TensorBase {
-                    id: unique_id(),
-                    data: OwnedData::new(out_vec),
-                    dim: self.dim.clone(),
-                    strides,
-                    is_leaf: false,
-                    requires_grad: self.requires_grad,
-                    backward_ops: RefCell::new(None),
-                }
+                Tensor::from_vec(out_vec, self.dim.clone()).leaf(false)
             }
         }
     };
@@ -398,7 +330,7 @@ impl<A> TensorBase<[usize; 2], A>
 where
     A: DataBuffer<Item = f32>,
 {
-    pub fn dot<B>(&self, rhs: &TensorBase<[usize; 2], B>) -> Tensor<[usize; 2], A::Item>
+    pub fn dot<B>(&self, rhs: &TensorBase<[usize; 2], B>) -> Tensor<[usize; 2], f32>
     where
         B: DataBuffer<Item = f32>,
     {
@@ -416,10 +348,10 @@ where
                 self.shape()[1],
                 rhs.shape()[1],
                 1.,
-                self.data.as_ptr(),
+                self.ptr.as_ptr(),
                 self.strides()[0] as isize,
                 self.strides()[1] as isize,
-                rhs.data.as_ptr(),
+                rhs.ptr.as_ptr(),
                 rhs.strides()[0] as isize,
                 rhs.strides()[1] as isize,
                 0.,

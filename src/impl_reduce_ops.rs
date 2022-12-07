@@ -1,8 +1,6 @@
-use std::{iter::Sum, ops::Index};
-
 use crate::{
-    impl_constructors::TensorConstructors, dim::Dimension, utils::nd_index, DataBuffer, DataElement,
-    Tensor, TensorBase,
+    dim::Dimension, impl_constructors::TensorConstructors, utils::nd_index, DataBuffer,
+    DataElement, Tensor, TensorBase,
 };
 
 pub trait ReduceOps {
@@ -11,28 +9,32 @@ pub trait ReduceOps {
     fn mean(&self) -> Self::Output;
 }
 
-impl<'a, S, A, Dtype> ReduceOps for TensorBase<S, A>
+impl<'a, S, A, E> ReduceOps for TensorBase<S, A>
 where
     S: Dimension + 'static,
-    A: DataBuffer<Item = Dtype> + Index<usize, Output = Dtype> + 'static,
-    Dtype: DataElement + Sum<&'a Dtype> + 'static,
+    A: DataBuffer<Item = E> + 'static,
+    E: DataElement + 'static,
 {
-    type Output = Tensor<[usize; 0], Dtype>;
+    type Output = Tensor<[usize; 0], E>;
 
     fn sum(&self) -> Self::Output {
         let sum = {
             if self.is_standard_layout() {
-                let s = self.as_slice().unwrap().iter().fold(Dtype::zero(), |acc, val| acc + *val);
+                let s = self
+                    .as_slice()
+                    .unwrap()
+                    .iter()
+                    .fold(E::zero(), |acc, val| acc + *val);
                 Tensor::from_vec(vec![s], [])
             } else {
-                let mut s = Dtype::zero();
+                let mut s = E::zero();
                 let strides = self.default_strides();
 
                 for i in 0..self.len() {
                     let idx = nd_index(i, &strides);
                     s += self[idx]
                 }
-                Tensor::from_vec(vec![s], []) 
+                Tensor::from_vec(vec![s], [])
             }
         };
         let mut backops = self.detach_backward_ops();
@@ -40,10 +42,10 @@ where
             let lhs_clone = self.clone();
             let out_id = sum.id;
             backops.as_mut().unwrap().add_backward_op(move |grad| {
-                let (input, out): (&mut Tensor<_, Dtype>, &Tensor<[usize; 0], Dtype>) =
+                let (input, out): (&mut Tensor<_, E>, &Tensor<[usize; 0], E>) =
                     grad.mr_grad((lhs_clone.id, lhs_clone.dim()), out_id);
-                let out_data = out.data[0];
-                let t = Tensor::<S, Dtype>::from_elem(lhs_clone.dim(), out_data);
+                let out_data = unsafe { out.ptr.as_ptr().read() };
+                let t = Tensor::<S, E>::from_elem(lhs_clone.dim(), out_data);
                 *input = input.clone() + t;
             });
         }
@@ -54,19 +56,23 @@ where
     fn mean(&self) -> Self::Output {
         let mean = {
             if self.is_standard_layout() {
-                let s = self.as_slice().unwrap().iter().fold(Dtype::zero(), |acc, val| acc + *val);
-                let n = Dtype::from_usize(self.len());
+                let s = self
+                    .as_slice()
+                    .unwrap()
+                    .iter()
+                    .fold(E::zero(), |acc, val| acc + *val);
+                let n = E::from_usize(self.len());
                 Tensor::from_vec(vec![s / n], [])
             } else {
-                let mut s = Dtype::zero();
-                let n = Dtype::from_usize(self.len());
+                let mut s = E::zero();
+                let n = E::from_usize(self.len());
                 let strides = self.default_strides();
 
                 for i in 0..self.len() {
                     let idx = nd_index(i, &strides);
                     s += self[idx]
                 }
-                Tensor::from_vec(vec![s / n], []) 
+                Tensor::from_vec(vec![s / n], [])
             }
         };
         let mut backops = self.detach_backward_ops();
@@ -74,11 +80,11 @@ where
             let lhs_clone = self.clone();
             let out_id = mean.id;
             backops.as_mut().unwrap().add_backward_op(move |grad| {
-                let (input, out): (&mut Tensor<_, Dtype>, &Tensor<[usize; 0], Dtype>) =
+                let (input, out): (&mut Tensor<_, E>, &Tensor<[usize; 0], E>) =
                     grad.mr_grad((lhs_clone.id, lhs_clone.dim()), out_id);
-                let n = Dtype::from_usize(lhs_clone.len());
-                let out_data = out.data[0] / n;
-                let t = Tensor::<S, Dtype>::from_elem(lhs_clone.dim(), out_data);
+                let n = E::from_usize(lhs_clone.len());
+                let out_data = unsafe { out.ptr.as_ptr().read() } / n;
+                let t = Tensor::<S, E>::from_elem(lhs_clone.dim(), out_data);
                 *input = input.clone() + t;
             });
         }
@@ -89,7 +95,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{Tensor, impl_reduce_ops::ReduceOps, impl_constructors::TensorConstructors};
+    use crate::{impl_constructors::TensorConstructors, impl_reduce_ops::ReduceOps, Tensor};
 
     #[test]
     fn test_sum() {
@@ -98,8 +104,9 @@ mod tests {
         let grad = sum.backward();
         let t_grad = grad.grad(&t);
         let a = Tensor::ones([5, 1]);
+        let sum = unsafe { sum.ptr.as_ptr().read() };
         assert_eq!(a, t_grad);
-        assert_eq!(sum.data[0], 15.);
+        assert_eq!(sum, 15.);
     }
 
     #[test]
@@ -110,6 +117,7 @@ mod tests {
         let t_grad = grad.grad(&t);
         let a = Tensor::from_elem([5, 1], 0.2);
         assert_eq!(a, t_grad);
-        assert_eq!(mean.data[0], 3.);
+        let mean = unsafe { mean.ptr.as_ptr().read() };
+        assert_eq!(mean, 3.);
     }
 }

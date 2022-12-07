@@ -12,7 +12,7 @@ pub mod impl_reduce_ops;
 
 use std::{
     marker::PhantomData,
-    ops::{Add, AddAssign, Div, Mul, MulAssign, Sub, SubAssign, Index, IndexMut},
+    ops::{Add, AddAssign, Div, Mul, MulAssign, Sub, SubAssign},
     ptr::NonNull,
     rc::Rc, cell::RefCell, fmt::Debug,
 };
@@ -35,6 +35,7 @@ where
     A: DataBuffer,
 {
     id: UniqueId,
+    ptr: NonNull<A::Item>,
     data: A,
     dim: S,
     strides: S,
@@ -44,7 +45,8 @@ where
 }
 
 pub type Tensor<S, Dtype> = TensorBase<S, OwnedData<Dtype>>;
-pub type TensorView<'a, S, Dtype> = TensorBase<S, ViewData<'a, Dtype>>;
+pub type TensorView<'a, S, E> = TensorBase<S, ViewData<&'a E>>;
+pub type TensorViewMut<'a, S, E> = TensorBase<S, ViewData<&'a mut E>>;
 
 #[derive(Debug)]
 pub struct OwnedData<E>
@@ -54,9 +56,17 @@ where
     data: Rc<Vec<E>>,
 }
 
+impl<E> DataBuffer for OwnedData<E> where E: DataElement {
+    type Item = E;
+}
+
 impl<E: DataElement> OwnedData<E> {
     pub fn new(data: Vec<E>) -> Self {
         OwnedData { data: Rc::new(data) }
+    }
+
+    pub fn from(data: Rc<Vec<E>>) -> Self {
+        OwnedData { data }
     }
 }
 
@@ -66,88 +76,35 @@ impl<E: DataElement> Clone for OwnedData<E> {
     }
 }
 
-impl<E: DataElement> Index<usize> for OwnedData<E> {
-    type Output = E;
-
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.data[index]
-    }
-}
-
-impl<E: DataElement> IndexMut<usize> for OwnedData<E> {
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        unsafe {
-            &mut *self.as_mut_ptr().offset(index as isize)
-        }
-    }
-}
-
-impl<E: DataElement> DataBuffer for OwnedData<E> {
-    type Item = E;
-
-    fn as_ptr(&self) -> *const Self::Item {
-        self.data.as_ptr()
-    }
-
-    fn as_mut_ptr(&self) -> *mut Self::Item {
-        self.data.as_ptr() as *mut Self::Item    
-    }
-}
 
 #[derive(Debug)]
-pub struct ViewData<'a, E>
-where
-    E: DataElement,
+pub struct ViewData<E>
 {
-    ptr: NonNull<E>,
-    marker: PhantomData<&'a E>,
+    marker: PhantomData<E>,
 }
 
-impl<'a, E: DataElement> Clone for ViewData<'a, E> {
+impl<E> Clone for ViewData<E> {
     fn clone(&self) -> Self {
         ViewData {
-            ptr: self.ptr.clone(),
-            marker: PhantomData,
+            marker: PhantomData::<E>,
         }
     }
 }
 
-impl<'a, E: DataElement> Index<usize> for ViewData<'a, E> {
-    type Output = E;
-
-    fn index(&self, index: usize) -> &Self::Output {
-        unsafe {
-            &*self.as_ptr().offset(index as isize) as &Self::Output
-        }
-    }
-}
-
-impl<'a, E: DataElement> IndexMut<usize> for ViewData<'a, E> {
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        unsafe {
-            &mut *self.as_mut_ptr().offset(index as isize)
-        }
-    }
-}
-
-impl<'a, E: DataElement> DataBuffer for ViewData<'a, E> {
+impl<E> DataBuffer for ViewData<&E> where E: DataElement {
     type Item = E;
-
-    fn as_ptr(&self) -> *const Self::Item {
-        self.ptr.as_ptr() as *const Self::Item
-    }
-
-    fn as_mut_ptr(&self) -> *mut Self::Item {
-        self.ptr.as_ptr()
-    }
 }
 
-pub trait DataBuffer: Clone + Index<usize> + IndexMut<usize> {
+impl<E> DataBuffer for ViewData<&mut E> where E: DataElement {
+    type Item = E;
+}
+
+
+
+pub trait DataBuffer: Clone {
     type Item: DataElement;
-
-    fn as_ptr(&self) -> *const Self::Item;
-    fn as_mut_ptr(&self) -> *mut Self::Item;
 }
+
 
 pub trait DataElement:
     PartialEq

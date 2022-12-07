@@ -1,9 +1,12 @@
-use std::{cell::RefCell, ptr::NonNull, ops::Index};
+use std::{cell::RefCell, ptr::NonNull};
 
 use crate::{
-    dim::Dimension, utils::{generate_strides, unlimited_transmute, nd_index}, UniqueId,
+    dim::Dimension,
+    gradient::{BackwardOps, GradientMap},
+    impl_constructors::TensorConstructors,
     unique_id::unique_id,
-    DataBuffer, DataElement, OwnedData, Tensor, TensorBase, TensorView, ViewData, gradient::{BackwardOps, GradientMap}, impl_constructors::TensorConstructors,
+    utils::{generate_strides, nd_index, unlimited_transmute},
+    DataBuffer, DataElement, OwnedData, Tensor, TensorBase, TensorView, UniqueId, ViewData, TensorViewMut,
 };
 
 impl<S, Dtype> Tensor<S, Dtype>
@@ -11,13 +14,15 @@ where
     S: Dimension,
     Dtype: DataElement,
 {
-    pub fn from_vec(a: Vec<Dtype>, dim: S) -> Tensor<S, Dtype> {
+    pub fn from_vec(mut a: Vec<Dtype>, dim: S) -> Tensor<S, Dtype> {
         let total_len = dim.count();
         assert_eq!(total_len, a.len());
+        let v = unsafe { NonNull::new_unchecked(a.as_mut_ptr()) };
         let strides = generate_strides(&dim);
         TensorBase {
             id: unique_id(),
             data: OwnedData::new(a),
+            ptr: v,
             dim,
             strides,
             is_leaf: true,
@@ -32,6 +37,11 @@ where
             *self.backward_ops.borrow_mut() = Some(BackwardOps(Vec::new()));
         }
 
+        self
+    }
+
+    pub fn leaf(mut self, is_leaf: bool) -> Self {
+        self.is_leaf = is_leaf;
         self
     }
 }
@@ -65,7 +75,7 @@ where
         if self.is_standard_layout() {
             unsafe {
                 Some(std::slice::from_raw_parts(
-                    self.data.as_ptr(),
+                    self.ptr.as_ptr(),
                     self.dim.count(),
                 ))
             }
@@ -74,11 +84,7 @@ where
         }
     }
 
-    pub fn map(&self, mut f: impl FnMut(&A::Item) -> A::Item) -> Tensor<S, A::Item>
-    where
-        A: DataBuffer + Index<usize, Output = A::Item>,
-        A::Item: DataElement,
-    {
+    pub fn map(&self, mut f: impl FnMut(&A::Item) -> A::Item) -> Tensor<S, A::Item> {
         if let Some(slc) = self.as_slice() {
             let new_data = slc.iter().map(f).collect();
             Tensor::from_vec(new_data, self.dim.clone())
@@ -97,13 +103,28 @@ where
         unsafe { unlimited_transmute(self) }
     }
 
-    pub fn view(&self) -> TensorView<'_, S, A::Item> {
+    pub fn view<'a>(&'a self) -> TensorView<'a, S, A::Item> {
         TensorBase {
             id: self.id,
             data: ViewData {
-                ptr: NonNull::new(self.data.as_mut_ptr()).unwrap(),
-                marker: std::marker::PhantomData,
+                marker: std::marker::PhantomData::<&'a A::Item>,
             },
+            ptr: self.ptr,
+            dim: self.dim.clone(),
+            strides: self.strides.clone(),
+            is_leaf: self.is_leaf,
+            requires_grad: self.requires_grad,
+            backward_ops: RefCell::new(None),
+        }
+    }
+
+    pub fn view_mut(&self) -> TensorViewMut<'_, S, A::Item> {
+        TensorBase {
+            id: self.id,
+            data: ViewData {
+                marker: std::marker::PhantomData::<&mut A::Item>,
+            },
+            ptr: self.ptr,
             dim: self.dim.clone(),
             strides: self.strides.clone(),
             is_leaf: self.is_leaf,
@@ -174,9 +195,9 @@ where
         TensorBase {
             id: self.id,
             data: ViewData {
-                ptr: NonNull::new(self.data.as_mut_ptr()).unwrap(),
                 marker: std::marker::PhantomData,
             },
+            ptr: self.ptr,
             dim,
             strides: new_strides,
             is_leaf: self.is_leaf,
@@ -194,9 +215,13 @@ where
     }
 }
 
-impl<A> TensorBase<[usize; 0], A> where A: DataBuffer {
+impl<A> TensorBase<[usize; 0], A>
+where
+    A: DataBuffer,
+{
     pub fn backward(&self) -> GradientMap
-    where A::Item: 'static
+    where
+        A: 'static,
     {
         if self.backward_ops.borrow().is_none() {
             panic!("Use requires_grad(true) to enable gradient computation");

@@ -1,4 +1,4 @@
-use std::{cell::RefCell, ptr::NonNull};
+use std::{cell::RefCell, ptr::NonNull, ops::Range};
 
 use crate::{
     dim::Dimension,
@@ -6,7 +6,8 @@ use crate::{
     impl_constructors::TensorConstructors,
     unique_id::unique_id,
     utils::{generate_strides, nd_index, unlimited_transmute},
-    DataBuffer, DataElement, OwnedData, Tensor, TensorBase, TensorView, UniqueId, ViewData, TensorViewMut,
+    DataBuffer, DataElement, OwnedData, Tensor, TensorBase, TensorView, TensorViewMut, UniqueId,
+    ViewData,
 };
 
 impl<S, Dtype> Tensor<S, Dtype>
@@ -99,21 +100,88 @@ where
         }
     }
 
+    pub fn slice_2d(&self, dx: Range<usize>, dy: Range<usize>) -> TensorView<'_, S, A::Item> {
+        assert!(self.ndim() >= 2);
+        let n = self.ndim();
+        let mut out_dim = self.dim();
+        out_dim[n - 1] = dx.end - dx.start;
+        out_dim[n - 2] = dy.end - dy.start;
+
+        let (rs, cs) = (self.strides[n - 2], self.strides[n - 1]);
+        let (ox, oy) = (dx.start, dy.start);
+
+        let ptr = unsafe { NonNull::new_unchecked(self.ptr.as_ptr().add(ox * cs + oy * rs)) };
+        self.view_from_data_ptr_and_dim(ptr, out_dim)
+    }
+
+    pub fn slice_mut_2d(&mut self, dx: Range<usize>, dy: Range<usize>) -> TensorViewMut<'_, S, A::Item> {
+        assert!(self.ndim() >= 2);
+        let n = self.ndim();
+        let mut out_dim = self.dim();
+        out_dim[n - 1] = dx.end - dx.start;
+        out_dim[n - 2] = dy.end - dy.start;
+
+        let (rs, cs) = (self.strides[n - 2], self.strides[n - 1]);
+        let (ox, oy) = (dx.start, dy.start);
+
+        let ptr = unsafe { NonNull::new_unchecked(self.ptr.as_ptr().add(ox * cs + oy * rs)) };
+        self.view_mut_from_data_ptr_and_dim(ptr, out_dim)
+    }
+
+    pub fn assign<S2, B>(&mut self, other: &TensorBase<S2, B>)
+    where
+        S2: Dimension,
+        B: DataBuffer<Item = A::Item>,
+    {
+        assert!(self.len() >= other.len());
+        todo!()
+    }
+
     pub fn into_dimensionality<D2: Dimension>(&self) -> &TensorBase<D2, A> {
         unsafe { unlimited_transmute(self) }
     }
 
-    pub fn view<'a>(&'a self) -> TensorView<'a, S, A::Item> {
+    fn view_from_data_ptr_and_dim(&self, ptr: NonNull<A::Item>, dim: S) -> TensorView<'_, S, A::Item>  {
         TensorBase {
             id: self.id,
             data: ViewData {
-                marker: std::marker::PhantomData::<&'a A::Item>,
+                marker: std::marker::PhantomData::<&A::Item>,
+            },
+            ptr,
+            dim,
+            strides: self.strides.clone(),
+            is_leaf: self.is_leaf,
+            requires_grad: false,
+            backward_ops: RefCell::new(None),
+        }
+    }
+
+    fn view_mut_from_data_ptr_and_dim(&mut self, ptr: NonNull<A::Item>, dim: S) -> TensorViewMut<'_, S, A::Item>  {
+        TensorBase {
+            id: self.id,
+            data: ViewData {
+                marker: std::marker::PhantomData::<&mut A::Item>,
+            },
+            ptr,
+            dim,
+            strides: self.strides.clone(),
+            is_leaf: self.is_leaf,
+            requires_grad: false,
+            backward_ops: RefCell::new(None),
+        }
+    }
+
+    pub fn view(&self) -> TensorView<'_, S, A::Item> {
+        TensorBase {
+            id: self.id,
+            data: ViewData {
+                marker: std::marker::PhantomData::<&A::Item>,
             },
             ptr: self.ptr,
             dim: self.dim.clone(),
             strides: self.strides.clone(),
             is_leaf: self.is_leaf,
-            requires_grad: self.requires_grad,
+            requires_grad: false,
             backward_ops: RefCell::new(None),
         }
     }
@@ -128,7 +196,7 @@ where
             dim: self.dim.clone(),
             strides: self.strides.clone(),
             is_leaf: self.is_leaf,
-            requires_grad: self.requires_grad,
+            requires_grad: false,
             backward_ops: RefCell::new(None),
         }
     }

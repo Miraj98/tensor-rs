@@ -9,6 +9,7 @@ pub mod impl_binary_ops;
 pub mod impl_unary_ops;
 pub mod impl_constructors;
 pub mod impl_reduce_ops;
+pub mod impl_processing_ops;
 
 use std::{
     marker::PhantomData,

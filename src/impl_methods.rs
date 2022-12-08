@@ -1,11 +1,11 @@
-use std::{cell::RefCell, ptr::NonNull, ops::Range};
+use std::{cell::RefCell, ops::Range, ptr::NonNull};
 
 use crate::{
     dim::Dimension,
     gradient::{BackwardOps, GradientMap},
     impl_constructors::TensorConstructors,
     unique_id::unique_id,
-    utils::{generate_strides, nd_index, unlimited_transmute},
+    utils::{generate_strides, nd_index, unlimited_transmute, vec_id},
     DataBuffer, DataElement, OwnedData, Tensor, TensorBase, TensorView, TensorViewMut, UniqueId,
     ViewData,
 };
@@ -114,7 +114,11 @@ where
         self.view_from_data_ptr_and_dim(ptr, out_dim)
     }
 
-    pub fn slice_mut_2d(&mut self, dx: Range<usize>, dy: Range<usize>) -> TensorViewMut<'_, S, A::Item> {
+    pub fn slice_mut_2d(
+        &mut self,
+        dx: Range<usize>,
+        dy: Range<usize>,
+    ) -> TensorViewMut<'_, S, A::Item> {
         assert!(self.ndim() >= 2);
         let n = self.ndim();
         let mut out_dim = self.dim();
@@ -128,20 +132,29 @@ where
         self.view_mut_from_data_ptr_and_dim(ptr, out_dim)
     }
 
-    pub fn assign<S2, B>(&mut self, other: &TensorBase<S2, B>)
+    pub fn assign<B>(&mut self, other: &TensorBase<S, B>)
     where
-        S2: Dimension,
         B: DataBuffer<Item = A::Item>,
     {
-        assert!(self.len() >= other.len());
-        todo!()
+        assert_eq!(self.shape(), other.shape());
+        assert!(other.is_standard_layout()); // TODO: relax this. This is being used to be able to create a slice from the data
+        let default_strides = self.default_strides();
+        let ptr = self.ptr.as_ptr();
+        for (i, val) in other.as_slice().unwrap().iter().enumerate() {
+            let offset = vec_id(nd_index(i, &default_strides), &self.dim, &self.strides);
+            unsafe { ptr.add(offset).write(*val) };
+        }
     }
 
     pub fn into_dimensionality<D2: Dimension>(&self) -> &TensorBase<D2, A> {
         unsafe { unlimited_transmute(self) }
     }
 
-    fn view_from_data_ptr_and_dim(&self, ptr: NonNull<A::Item>, dim: S) -> TensorView<'_, S, A::Item>  {
+    fn view_from_data_ptr_and_dim(
+        &self,
+        ptr: NonNull<A::Item>,
+        dim: S,
+    ) -> TensorView<'_, S, A::Item> {
         TensorBase {
             id: self.id,
             data: ViewData {
@@ -156,7 +169,11 @@ where
         }
     }
 
-    fn view_mut_from_data_ptr_and_dim(&mut self, ptr: NonNull<A::Item>, dim: S) -> TensorViewMut<'_, S, A::Item>  {
+    fn view_mut_from_data_ptr_and_dim(
+        &mut self,
+        ptr: NonNull<A::Item>,
+        dim: S,
+    ) -> TensorViewMut<'_, S, A::Item> {
         TensorBase {
             id: self.id,
             data: ViewData {
@@ -310,6 +327,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::impl_constructors::tensor;
+
     use super::*;
 
     #[test]
@@ -325,5 +344,14 @@ mod tests {
             [3, 2, 5],
         );
         assert_eq!(broadcasted, similar);
+    }
+
+    #[test]
+    fn assign_test() {
+        let mut a = Tensor::ones([3, 3]);
+        let b = Tensor::zeros([2, 2]);
+        let mut aview = a.slice_mut_2d(0..2, 0..2);
+        aview.assign(&b);
+        assert_eq!(a, tensor([[0., 0., 1.], [0., 0., 1.], [1., 1., 1.]]));
     }
 }

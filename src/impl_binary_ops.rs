@@ -17,14 +17,24 @@ macro_rules! impl_binary_ops {
             type Output = Tensor<S, E>;
 
             fn $math(self, rhs: TensorBase<S, A>) -> Self::Output {
-                assert_eq!(self.shape(), rhs.shape());
+                assert_eq!(self.len(), rhs.len());
+                let s_ptr = self.ptr.as_ptr();
+                let o_ptr = rhs.ptr.as_ptr();
                 let strides = self.default_strides();
                 let mut out_vec = Vec::with_capacity(self.len());
-                for i in 0..self.len() {
-                    let idx = nd_index(i, &strides);
-                    out_vec.push(self[idx.clone()].$math(rhs[idx]));
+                if (self.is_standard_layout() && rhs.is_standard_layout()) {
+                    
+                    unsafe {
+                        for i in 0..self.len() {
+                            out_vec.push(s_ptr.add(i).read().$math(o_ptr.add(i).read()));
+                        }
+                    }
+                } else {
+                    for i in 0..self.len() {
+                        let idx = nd_index(i, &strides);
+                        out_vec.push(self[idx.clone()].$math(rhs[idx]));
+                    }
                 }
-
                 Tensor::from_vec(out_vec, self.dim.clone()).leaf(false)
             }
         }
@@ -39,14 +49,24 @@ macro_rules! impl_binary_ops {
             type Output = Tensor<S, E>;
 
             fn $math(self, rhs: &'a TensorBase<S, A>) -> Self::Output {
-                assert_eq!(self.shape(), rhs.shape());
+                assert_eq!(self.len(), rhs.len());
+                let s_ptr = self.ptr.as_ptr();
+                let o_ptr = rhs.ptr.as_ptr();
                 let strides = self.default_strides();
                 let mut out_vec = Vec::with_capacity(self.len());
-                for i in 0..self.len() {
-                    let idx = nd_index(i, &strides);
-                    out_vec.push(self[idx.clone()].$math(rhs[idx]));
+                if (self.is_standard_layout() && rhs.is_standard_layout()) {
+                    
+                    unsafe {
+                        for i in 0..self.len() {
+                            out_vec.push(s_ptr.add(i).read().$math(o_ptr.add(i).read()));
+                        }
+                    }
+                } else {
+                    for i in 0..self.len() {
+                        let idx = nd_index(i, &strides);
+                        out_vec.push(self[idx.clone()].$math(rhs[idx]));
+                    }
                 }
-
                 Tensor::from_vec(out_vec, self.dim.clone()).leaf(false)
             }
         }
@@ -83,14 +103,24 @@ macro_rules! impl_binary_ops {
             type Output = Tensor<S, E>;
 
             fn $math(self, rhs: &'a TensorBase<S, A>) -> Self::Output {
-                assert_eq!(self.shape(), rhs.shape());
+                assert_eq!(self.len(), rhs.len());
+                let s_ptr = self.ptr.as_ptr();
+                let o_ptr = rhs.ptr.as_ptr();
                 let strides = self.default_strides();
                 let mut out_vec = Vec::with_capacity(self.len());
-                for i in 0..self.len() {
-                    let idx = nd_index(i, &strides);
-                    out_vec.push(self[idx.clone()].$math(rhs[idx]));
+                if (self.is_standard_layout() && rhs.is_standard_layout()) {
+                    
+                    unsafe {
+                        for i in 0..self.len() {
+                            out_vec.push(s_ptr.add(i).read().$math(o_ptr.add(i).read()));
+                        }
+                    }
+                } else {
+                    for i in 0..self.len() {
+                        let idx = nd_index(i, &strides);
+                        out_vec.push(self[idx.clone()].$math(rhs[idx]));
+                    }
                 }
-
                 Tensor::from_vec(out_vec, self.dim.clone()).leaf(false)
             }
         }
@@ -181,7 +211,18 @@ where
     E: DataElement,
 {
     fn add_assign(&mut self, rhs: TensorBase<S, B>) {
-        self.assign_with(&rhs, |a, b| a + b);
+        assert_eq!(self.shape(), rhs.shape(), "Shape mismatch in add_assign");
+        if self.is_standard_layout() && rhs.is_standard_layout() {
+            let self_ptr = self.ptr.as_ptr();
+            let rhs_ptr = rhs.ptr.as_ptr();
+            for i in 0..self.len() {
+                let assign_at = unsafe { self_ptr.add(i) };
+                let rhs_at = unsafe { rhs_ptr.add(i) };
+                unsafe { assign_at.write((*assign_at) + (*rhs_at)) }
+            } 
+        } else {
+            self.assign_with(&rhs, |a, b| a + b);
+        } 
     }
 }
 
@@ -193,7 +234,18 @@ where
     E: DataElement,
 {
     fn sub_assign(&mut self, rhs: TensorBase<S, B>) {
-        self.assign_with(&rhs, |a, b| a - b);
+        assert_eq!(self.shape(), rhs.shape(), "Shape mismatch in add_assign");
+        if self.is_standard_layout() && rhs.is_standard_layout() {
+            let self_ptr = self.ptr.as_ptr();
+            let rhs_ptr = rhs.ptr.as_ptr();
+            for i in 0..self.len() {
+                let assign_at = unsafe { self_ptr.add(i) };
+                let rhs_at = unsafe { rhs_ptr.add(i) };
+                unsafe { assign_at.write((*assign_at) - (*rhs_at)) }
+            } 
+        } else {
+            self.assign_with(&rhs, |a, b| a - b);
+        } 
     }
 }
 
@@ -205,7 +257,18 @@ where
     E: DataElement,
 {
     fn add_assign(&mut self, rhs: &'a TensorBase<S, B>) {
-        self.assign_with(&rhs, |a, b| a + b);
+        assert_eq!(self.shape(), rhs.shape(), "Shape mismatch in add_assign");
+        if self.is_standard_layout() && rhs.is_standard_layout() {
+            let self_ptr = self.ptr.as_ptr();
+            let rhs_ptr = rhs.ptr.as_ptr();
+            for i in 0..self.len() {
+                let assign_at = unsafe { self_ptr.add(i) };
+                let rhs_at = unsafe { rhs_ptr.add(i) };
+                unsafe { assign_at.write((*assign_at) + (*rhs_at)) }
+            } 
+        } else {
+            self.assign_with(&rhs, |a, b| a + b);
+        }
     }
 }
 
@@ -217,16 +280,24 @@ where
 {
     fn mul_assign(&mut self, rhs: E) {
         let default_strides = self.default_strides();
-        let ptr = self.ptr.as_ptr();
-        for i in 0..self.len() {
-            let assign_at = unsafe {
-                ptr.add(vec_id(
-                    nd_index(i, &default_strides),
-                    &self.dim,
-                    &self.strides,
-                ))
-            };
-            unsafe { assign_at.write((*assign_at) * rhs) }
+        if default_strides.shape() == self.strides.shape() {
+            let ptr = self.ptr.as_ptr();
+            for i in 0..self.len() {
+                let assign_at = unsafe { ptr.add(i) };
+                unsafe { assign_at.write((*assign_at) * rhs) }
+            }
+        } else {
+            let ptr = self.ptr.as_ptr();
+            for i in 0..self.len() {
+                let assign_at = unsafe {
+                    ptr.add(vec_id(
+                        nd_index(i, &default_strides),
+                        &self.dim,
+                        &self.strides,
+                    ))
+                };
+                unsafe { assign_at.write((*assign_at) * rhs) }
+            }
         }
     }
 }

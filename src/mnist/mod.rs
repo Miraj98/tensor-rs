@@ -13,7 +13,7 @@ pub trait Dataloader {
 pub const PX_SIZE: usize = 28;
 
 pub mod mnist {
-    use std::fs;
+    use std::{fs, time::Instant};
     use crate::{impl_constructors::TensorConstructors, Tensor};
     use super::{Dataloader, PX_SIZE};
 
@@ -44,6 +44,7 @@ pub mod mnist {
             batch_size: usize,
             batch_idx: usize,
         ) -> Vec<(Tensor<[usize; 2], f32>, Tensor<[usize; 2], f32>)> {
+            let start = Instant::now();
             let mut b = Vec::<(Tensor<[usize; 2], f32>, Tensor<[usize; 2], f32>)>::new();
 
             if self.size() % batch_size as u16 != 0 {

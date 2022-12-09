@@ -45,6 +45,8 @@ impl NN {
     }
 
     fn mini_batch(&mut self, batch: Vec<(Tensor<[usize; 2], f32>, Tensor<[usize; 2], f32>)>) {
+        let start = Instant::now();
+        let mut total_backops_time = 0.;
         let lr = 2.0;
         let mut w1_grad: Tensor<[usize; 2], f32> = Tensor::zeros([30, 784]);
         let mut b1_grad: Tensor<[usize; 2], f32> = Tensor::zeros([30, 1]);
@@ -54,6 +56,7 @@ impl NN {
         let alpha = lr / batch.len() as f32;
 
         for (i, o) in batch.iter() {
+            let backprop_start = Instant::now();
             let (l, grad) = self.backprop(i, o);
             w1_grad += grad.grad(&self.w1);
             w2_grad += grad.grad(&self.w2);
@@ -72,6 +75,8 @@ impl NN {
         self.w2 -= w2_grad;
         self.b1 -= b1_grad;
         self.b2 -= b2_grad;
+        // println!("Backward ops time: {:?} secs", total_backops_time);
+        // println!("Mini-batch completion time: {:?} secs", start.elapsed().as_secs_f64());
     }
 
     pub fn train(&mut self, batch_size: usize, epochs: usize) {

@@ -18,6 +18,9 @@ use std::{
     rc::Rc, cell::RefCell, fmt::Debug,
 };
 
+use rand::{thread_rng, Rng};
+use rand_distr::StandardNormal;
+
 use crate::unique_id::UniqueId;
 use crate::dim::Dimension;
 use crate::gradient::BackwardOps;
@@ -128,6 +131,7 @@ pub trait DataElement:
     fn sigmoid(&self) -> Self;
     fn relu(&self) -> Self;
     fn from_usize(x: usize) -> Self;
+    fn randn() -> Self;
 }
 
 impl DataElement for f32 {
@@ -153,6 +157,9 @@ impl DataElement for f32 {
     fn from_usize(x: usize) -> Self {
         x as f32
     }
+    fn randn() -> Self {
+        thread_rng().sample(StandardNormal)
+    }
 }
 
 impl DataElement for f64 {
@@ -177,5 +184,8 @@ impl DataElement for f64 {
     }
     fn from_usize(x: usize) -> Self {
         x as f64
+    }
+    fn randn() -> Self {
+        thread_rng().sample(StandardNormal)
     }
 }

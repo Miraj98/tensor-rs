@@ -92,9 +92,6 @@ where
     where
         B: DataBuffer<Item = f32>,
     {
-        let a = self.shape()[1];
-        let b = self.shape()[1];
-        println!("a: {}, b: {}", a, b);
         assert!(self.shape()[1] == rhs.shape()[0]);
         let out_dim = [self.shape()[0], rhs.shape()[1]];
         let out_strides = generate_strides(&out_dim);

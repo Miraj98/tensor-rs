@@ -8,6 +8,7 @@ where
     fn ones(dim: Self::S) -> Self;
     fn zeros(dim: Self::S) -> Self;
     fn from_elem(dim: Self::S, elem: Dtype) -> Self;
+    fn randn(dim: Self::S) -> Self;
 }
 
 impl<S, Dtype> TensorConstructors<Dtype> for Tensor<S, Dtype>
@@ -29,6 +30,11 @@ where
 
     fn from_elem(dim: S, elem: Dtype) -> Self {
         let a = vec![elem; dim.count()];
+        TensorBase::from_vec(a, dim)
+    }
+
+    fn randn(dim: S) -> Self where Dtype: DataElement {
+        let a = (0..dim.count()).map(|_| Dtype::randn()).collect::<Vec<_>>();
         TensorBase::from_vec(a, dim)
     }
 }

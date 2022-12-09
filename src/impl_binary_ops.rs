@@ -432,8 +432,7 @@ macro_rules! impl_binary_ops_with_broadcast {
             if $lhs.shape() == $rhs.shape() {
                 let l = $lhs.into_dimensionality::<DimMaxOf<L, R>>();
                 let r = $rhs.into_dimensionality::<DimMaxOf<L, R>>();
-                out = l.clone();
-                // out = l $symbol r;
+                out = l $symbol r;
             } else {
                 let v1: TensorView<'_, DimMaxOf<L, R>, Dtype>;
                 let v2: TensorView<'_, DimMaxOf<L, R>, Dtype>;

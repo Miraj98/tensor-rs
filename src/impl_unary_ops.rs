@@ -1,4 +1,4 @@
-use crate::{TensorBase, OwnedData, dim::Dimension, Tensor, DataElement};
+use crate::{dim::Dimension, DataElement, OwnedData, Tensor, TensorBase};
 
 pub trait TensorUnaryOps {
     fn sigmoid(&self) -> Self;
@@ -20,7 +20,7 @@ where
             backward_ops.as_mut().unwrap().add_backward_op(move |grad| {
                 let (input, out): (&mut Tensor<_, f32>, &Tensor<_, f32>) =
                     grad.mr_grad((lhs_id, out_clone.dim()), out_clone.id);
-                *input = input.clone() + (out_clone.map(|x| x * (1.0 - x)) * out);
+                *input += out_clone.map(|x| x * (1.0 - x)) * out;
             });
             *o.backward_ops.borrow_mut() = backward_ops;
         }
@@ -36,7 +36,7 @@ where
             backward_ops.as_mut().unwrap().add_backward_op(move |grad| {
                 let (input, out): (&mut Tensor<_, f32>, &Tensor<_, f32>) =
                     grad.mr_grad((lhs_id, out_clone.dim()), out_clone.id);
-                *input = input.clone() + out_clone.map(|x| (1.0 - x) * (1.0 - x)) * out;
+                *input += out_clone.map(|x| (1.0 - x) * (1.0 - x)) * out;
             });
             *o.backward_ops.borrow_mut() = backward_ops;
         }
@@ -53,7 +53,7 @@ where
             backward_ops.as_mut().unwrap().add_backward_op(move |grad| {
                 let (input, out): (&mut Tensor<_, f32>, &Tensor<_, f32>) =
                     grad.mr_grad((lhs_id, out_clone.dim()), out_clone.id);
-                *input = input.clone() + out_clone.map(|x| if *x > 0. { 1.0 } else { 0. }) * out;
+                *input += out_clone.map(|x| if *x > 0. { 1.0 } else { 0. }) * out;
             });
             *o.backward_ops.borrow_mut() = backward_ops;
         }
@@ -70,13 +70,15 @@ where
         let o = self.map(f64::sigmoid);
 
         if self.backward_ops.borrow().is_some() {
-            let out_clone = o.clone();
+            let mut out_clone = o.clone();
             let lhs_id = self.id;
             let mut backward_ops = self.detach_backward_ops();
             backward_ops.as_mut().unwrap().add_backward_op(move |grad| {
                 let (input, out): (&mut Tensor<_, f64>, &Tensor<_, f64>) =
                     grad.mr_grad((lhs_id, out_clone.dim()), out_clone.id);
-                *input = input.clone() + (out_clone.map(|x| x * (1.0 - x)) * out);
+                out_clone.map_inplace(|x| x * (1.0 - x));
+                out_clone *= out;
+                *input += out_clone;
             });
             *o.backward_ops.borrow_mut() = backward_ops;
         }
@@ -86,13 +88,16 @@ where
     fn tanh(&self) -> Self {
         let o = self.map(|x| x.tanh());
         if self.backward_ops.borrow().is_some() {
-            let out_clone = o.clone();
+            let mut out_clone = o.clone();
             let lhs_id = self.id;
             let mut backward_ops = self.detach_backward_ops();
             backward_ops.as_mut().unwrap().add_backward_op(move |grad| {
                 let (input, out): (&mut Tensor<_, f64>, &Tensor<_, f64>) =
                     grad.mr_grad((lhs_id, out_clone.dim()), out_clone.id);
-                *input = input.clone() + out_clone.map(|x| (1.0 - x) * (1.0 - x)) * out;
+
+                out_clone.map_inplace(|x| (1.0 - x) * (1.0 - x));
+                out_clone *= out;
+                *input += out_clone;
             });
             *o.backward_ops.borrow_mut() = backward_ops;
         }
@@ -104,12 +109,14 @@ where
         let o = self.map(f64::relu);
         if self.backward_ops.borrow().is_some() {
             let mut backward_ops = self.detach_backward_ops();
-            let out_clone = o.clone();
+            let mut out_clone = o.clone();
             let lhs_id = self.id;
             backward_ops.as_mut().unwrap().add_backward_op(move |grad| {
                 let (input, out): (&mut Tensor<_, f64>, &Tensor<_, f64>) =
                     grad.mr_grad((lhs_id, out_clone.dim()), out_clone.id);
-                *input = input.clone() + out_clone.map(|x| if *x > 0. { 1.0 } else { 0. }) * out;
+                out_clone.map_inplace(|x| if *x > 0. { 1.0 } else { 0. });
+                out_clone *= out;
+                *input += out_clone;
             });
             *o.backward_ops.borrow_mut() = backward_ops;
         }

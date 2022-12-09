@@ -46,7 +46,7 @@ where
                     grad.mr_grad((lhs_clone.id, lhs_clone.dim()), out_id);
                 let out_data = unsafe { out.ptr.as_ptr().read() };
                 let t = Tensor::<S, E>::from_elem(lhs_clone.dim(), out_data);
-                *input = input.clone() + t;
+                *input += t;
             });
         }
         *sum.backward_ops.borrow_mut() = backops;
@@ -85,7 +85,7 @@ where
                 let n = E::from_usize(lhs_clone.len());
                 let out_data = unsafe { out.ptr.as_ptr().read() } / n;
                 let t = Tensor::<S, E>::from_elem(lhs_clone.dim(), out_data);
-                *input = input.clone() + t;
+                *input += t;
             });
         }
         *mean.backward_ops.borrow_mut() = backops;

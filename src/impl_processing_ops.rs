@@ -30,8 +30,8 @@ where
                     (rhs_clone.id, rhs_clone.dim()),
                     out_id,
                 );
-                *grad_lhs = grad_lhs.clone() + grad_out.dot(&rhs_clone.t());
-                *grad_rhs = grad_rhs.clone() + &lhs_clone.t().dot(grad_out);
+                *grad_lhs += grad_out.dot(&rhs_clone.t());
+                *grad_rhs += &lhs_clone.t().dot(grad_out);
             });
             out.put_backward_ops(backops);
         }

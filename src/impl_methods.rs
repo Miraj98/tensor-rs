@@ -100,6 +100,17 @@ where
         }
     }
 
+    pub fn map_inplace(&mut self, mut f: impl FnMut(&A::Item) -> A::Item) {
+        let ptr = self.ptr.as_ptr();
+        unsafe {
+            for i in 0..self.len() {
+                let p = ptr.add(i);
+                let x = p.read();
+                p.write(f(&x));
+            }
+        }
+    }
+
     pub fn slice_2d(&self, dx: Range<usize>, dy: Range<usize>) -> TensorView<'_, S, A::Item> {
         assert!(self.ndim() >= 2);
         let n = self.ndim();

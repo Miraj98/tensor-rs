@@ -1,7 +1,9 @@
+use std::time::Instant;
+
 use tensor_rs::{
     impl_binary_ops::TensorBinaryOps, impl_constructors::TensorConstructors,
     impl_processing_ops::Matmul, impl_reduce_ops::ReduceOps, impl_unary_ops::TensorUnaryOps,
-    prelude::GradientMap, Tensor,
+    prelude::{GradientMap, BackwardOps}, Tensor, mnist::{mnist::MnistData, mnist, Dataloader},
 };
 
 struct NN {
@@ -9,6 +11,7 @@ struct NN {
     b1: Tensor<[usize; 2], f32>,
     w2: Tensor<[usize; 2], f32>,
     b2: Tensor<[usize; 2], f32>,
+    mnsit: MnistData,
 }
 
 impl NN {
@@ -18,6 +21,7 @@ impl NN {
             b1: Tensor::randn([30, 1]).requires_grad(true),
             w2: Tensor::randn([10, 30]).requires_grad(true),
             b2: Tensor::randn([10, 1]).requires_grad(true),
+            mnsit: mnist::load_data(),
         }
     }
 
@@ -40,36 +44,54 @@ impl NN {
         (loss, grad)
     }
 
-    pub fn mini_batch(&self, batch: Vec<(Tensor<[usize; 2], f32>, Tensor<[usize; 2], f32>)>) {
+    fn mini_batch(&mut self, batch: Vec<(Tensor<[usize; 2], f32>, Tensor<[usize; 2], f32>)>) {
+        let lr = 2.0;
         let mut w1_grad: Tensor<[usize; 2], f32> = Tensor::zeros([30, 784]);
         let mut b1_grad: Tensor<[usize; 2], f32> = Tensor::zeros([30, 1]);
         let mut w2_grad: Tensor<[usize; 2], f32> = Tensor::zeros([10, 30]);
         let mut b2_grad: Tensor<[usize; 2], f32> = Tensor::zeros([10, 1]);
+        let mut loss: Tensor<[usize; 0], f32> = Tensor::zeros([]);
+        let alpha = lr / batch.len() as f32;
 
         for (i, o) in batch.iter() {
-            let (loss, grad) = self.backprop(i, o);
+            let (l, grad) = self.backprop(i, o);
             w1_grad += grad.grad(&self.w1);
             w2_grad += grad.grad(&self.w2);
             b1_grad += grad.grad(&self.b1);
             b2_grad += grad.grad(&self.b2);
+            loss += l;
+            *self.w1.backward_ops.borrow_mut() = Some(BackwardOps::new());
         }
+
+        w1_grad *= alpha;
+        w2_grad *= alpha;
+        b1_grad *= alpha;
+        b2_grad *= alpha;
+
+        self.w1 -= w1_grad;
+        self.w2 -= w2_grad;
+        self.b1 -= b1_grad;
+        self.b2 -= b2_grad;
+    }
+
+    pub fn train(&mut self, batch_size: usize, epochs: usize) {
+        let total_batches = self.mnsit.dataset_size as usize / batch_size;
+
+        println!("Total batches: {total_batches}");
+
+        for i in 0..epochs {
+            let start = Instant::now();
+            for j in 0..total_batches {
+                let batch = self.mnsit.get_batch(batch_size, j);
+                self.mini_batch(batch);
+            }
+            println!("Epoch: {} Time taken: {:?} ", i, start.elapsed().as_secs_f32());
+        }
+
     }
 }
 
 fn main() {
-    let nn = NN::new();
-    let input = Tensor::randn([784, 1]);
-    let output = Tensor::zeros([10, 1]);
-
-    let (loss, _) = nn.backprop(&input, &output);
-
-    println!("\nLoss\n{:?}", loss);
-
-    // let mut o: Tensor<[usize; 2], f32> = Tensor::ones([10 ,1]);
-    // let start = Instant::now();
-    // for _ in 0..60_000 {
-    //     o = nn.forward(&input);
-    // }
-    // println!("Time taken {:?} secs", start.elapsed().as_secs_f32());
-    // println!("{:?}", o);
+    let mut nn = NN::new();
+    nn.train(10, 30);
 }

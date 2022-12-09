@@ -1,29 +1,33 @@
-pub mod unique_id;
-pub mod gradient;
 pub mod dim;
+pub mod gradient;
+pub mod unique_id;
 pub mod utils;
 
-pub mod impl_methods;
-pub mod impl_traits;
 pub mod impl_binary_ops;
-pub mod impl_unary_ops;
 pub mod impl_constructors;
-pub mod impl_reduce_ops;
+pub mod impl_methods;
 pub mod impl_processing_ops;
+pub mod impl_reduce_ops;
+pub mod impl_traits;
+pub mod impl_unary_ops;
+
+pub mod mnist;
 
 use std::{
+    cell::RefCell,
+    fmt::Debug,
     marker::PhantomData,
     ops::{Add, AddAssign, Div, Mul, MulAssign, Sub, SubAssign},
     ptr::NonNull,
-    rc::Rc, cell::RefCell, fmt::Debug,
+    rc::Rc,
 };
 
 use rand::{thread_rng, Rng};
 use rand_distr::StandardNormal;
 
-use crate::unique_id::UniqueId;
 use crate::dim::Dimension;
 use crate::gradient::BackwardOps;
+use crate::unique_id::UniqueId;
 
 pub mod num_taits;
 
@@ -33,7 +37,7 @@ pub mod prelude {
 }
 
 #[derive(Debug)]
-pub struct TensorBase<S, A>
+pub struct TensorBase<S, A = OwnedData<f32>>
 where
     S: Dimension,
     A: DataBuffer,
@@ -43,12 +47,12 @@ where
     data: A,
     dim: S,
     strides: S,
-    backward_ops: RefCell<Option<BackwardOps>>,
+    pub backward_ops: RefCell<Option<BackwardOps>>,
     is_leaf: bool,
     requires_grad: bool,
 }
 
-pub type Tensor<S, Dtype> = TensorBase<S, OwnedData<Dtype>>;
+pub type Tensor<S, Dtype = f32> = TensorBase<S, OwnedData<Dtype>>;
 pub type TensorView<'a, S, E> = TensorBase<S, ViewData<&'a E>>;
 pub type TensorViewMut<'a, S, E> = TensorBase<S, ViewData<&'a mut E>>;
 
@@ -60,13 +64,18 @@ where
     data: Rc<Vec<E>>,
 }
 
-impl<E> DataBuffer for OwnedData<E> where E: DataElement {
+impl<E> DataBuffer for OwnedData<E>
+where
+    E: DataElement,
+{
     type Item = E;
 }
 
 impl<E: DataElement> OwnedData<E> {
     pub fn new(data: Vec<E>) -> Self {
-        OwnedData { data: Rc::new(data) }
+        OwnedData {
+            data: Rc::new(data),
+        }
     }
 
     pub fn from(data: Rc<Vec<E>>) -> Self {
@@ -76,14 +85,14 @@ impl<E: DataElement> OwnedData<E> {
 
 impl<E: DataElement> Clone for OwnedData<E> {
     fn clone(&self) -> Self {
-        OwnedData { data: Rc::clone(&self.data) }
+        OwnedData {
+            data: Rc::clone(&self.data),
+        }
     }
 }
 
-
 #[derive(Debug)]
-pub struct ViewData<E>
-{
+pub struct ViewData<E> {
     marker: PhantomData<E>,
 }
 
@@ -95,20 +104,23 @@ impl<E> Clone for ViewData<E> {
     }
 }
 
-impl<E> DataBuffer for ViewData<&E> where E: DataElement {
+impl<E> DataBuffer for ViewData<&E>
+where
+    E: DataElement,
+{
     type Item = E;
 }
 
-impl<E> DataBuffer for ViewData<&mut E> where E: DataElement {
+impl<E> DataBuffer for ViewData<&mut E>
+where
+    E: DataElement,
+{
     type Item = E;
 }
-
-
 
 pub trait DataBuffer: Clone {
     type Item: DataElement;
 }
-
 
 pub trait DataElement:
     PartialEq
@@ -152,7 +164,11 @@ impl DataElement for f32 {
         1. / (1. + (-*self).exp())
     }
     fn relu(&self) -> Self {
-        if *self > 0. { *self } else { 0. }
+        if *self > 0. {
+            *self
+        } else {
+            0.
+        }
     }
     fn from_usize(x: usize) -> Self {
         x as f32
@@ -180,7 +196,11 @@ impl DataElement for f64 {
         1. / (1. + (-*self).exp())
     }
     fn relu(&self) -> Self {
-        if *self > 0. { *self } else { 0. }
+        if *self > 0. {
+            *self
+        } else {
+            0.
+        }
     }
     fn from_usize(x: usize) -> Self {
         x as f64

@@ -16,25 +16,25 @@ where
     fn matmul(&self, rhs: &TensorBase<[usize; 2], A>) -> Self::Output {
         let mut backops = merge_backward_ops(self, rhs);
         let out = self.dot(rhs);
-
         let out_id = out.id;
         let lhs_clone = self.clone();
         let rhs_clone = rhs.clone();
-        backops.as_mut().unwrap().add_backward_op(move |grad| {
-            let (grad_lhs, grad_rhs, grad_out): (
-                &mut Tensor<_, f32>,
-                &mut Tensor<_, f32>,
-                &Tensor<[usize; 2], f32>,
-            ) = grad.mmr_grad(
-                (lhs_clone.id, lhs_clone.dim()),
-                (rhs_clone.id, rhs_clone.dim()),
-                out_id,
-            );
-            *grad_lhs = grad_lhs.clone() + grad_out.dot(&rhs_clone.t());
-            *grad_rhs = grad_rhs.clone() + &lhs_clone.t().dot(grad_out);
-        });
-
-        out.put_backward_ops(backops);
+        if backops.is_some() {
+            backops.as_mut().unwrap().add_backward_op(move |grad| {
+                let (grad_lhs, grad_rhs, grad_out): (
+                    &mut Tensor<_, f32>,
+                    &mut Tensor<_, f32>,
+                    &Tensor<[usize; 2], f32>,
+                ) = grad.mmr_grad(
+                    (lhs_clone.id, lhs_clone.dim()),
+                    (rhs_clone.id, rhs_clone.dim()),
+                    out_id,
+                );
+                *grad_lhs = grad_lhs.clone() + grad_out.dot(&rhs_clone.t());
+                *grad_rhs = grad_rhs.clone() + &lhs_clone.t().dot(grad_out);
+            });
+            out.put_backward_ops(backops);
+        }
         out
     }
 }
@@ -122,9 +122,22 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::impl_constructors::tensor;
+    use super::{Conv2d, Matmul};
+    use crate::{impl_constructors::{tensor, TensorConstructors}, Tensor};
 
-    use super::Conv2d;
+    #[test]
+    fn matmul_backward_ops_test() {
+        let a = Tensor::ones([2, 2]);
+        let b = Tensor::ones([2, 2]);
+
+        assert!(a.backward_ops.borrow().is_none());
+        assert!(b.backward_ops.borrow().is_none());
+
+        let c = a.matmul(&b);
+
+        assert_eq!(c, tensor([[2., 2.], [2., 2.]]));
+        assert!(c.backward_ops.borrow().is_none());
+    }
 
     #[test]
     fn conv() {

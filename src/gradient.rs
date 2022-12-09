@@ -7,6 +7,12 @@ use std::{any::Any, collections::HashMap, fmt::Debug};
 
 pub struct BackwardOps(pub(crate) Vec<Box<dyn FnOnce(&mut GradientMap)>>);
 
+impl BackwardOps {
+    pub fn new() -> Self {
+        BackwardOps(Vec::new())
+    }
+}
+
 pub trait Merge {
     fn merge(self, other: Self) -> Self;
 }
@@ -40,7 +46,7 @@ impl BackwardOps {
 impl Merge for Option<BackwardOps> {
     fn merge(mut self, mut other: Self) -> Self {
         if self.is_none() && other.is_none() {
-            Some(BackwardOps(Vec::new()))
+            None
         } else if self.is_some() && other.is_none() {
             self
         } else if self.is_none() && other.is_some() {
@@ -52,6 +58,7 @@ impl Merge for Option<BackwardOps> {
     }
 }
 
+#[derive(Debug)]
 pub struct GradientMap(pub(crate) HashMap<UniqueId, Box<dyn Any>>);
 
 impl GradientMap {

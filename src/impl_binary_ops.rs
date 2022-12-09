@@ -1,9 +1,9 @@
 use crate::{
     dim::{DimMax, DimMaxOf, Dimension},
-    utils::{merge_backward_ops, nd_index, reduced_grad},
+    utils::{merge_backward_ops, nd_index, reduced_grad, vec_id},
     DataBuffer, DataElement, Tensor, TensorBase, TensorView,
 };
-use std::ops::{Add, Div, Mul, Sub};
+use std::ops::{Add, AddAssign, Div, Mul, Sub, DivAssign};
 
 macro_rules! impl_binary_ops {
     ($math: ident, $trait: ident) => {
@@ -173,6 +173,46 @@ macro_rules! impl_binary_ops {
     };
 }
 
+impl<S, A, B, E> AddAssign<TensorBase<S, B>> for TensorBase<S, A>
+where
+    S: Dimension,
+    A: DataBuffer<Item = E>,
+    B: DataBuffer<Item = E>,
+    E: DataElement,
+{
+    fn add_assign(&mut self, rhs: TensorBase<S, B>) {
+        self.assign_with(&rhs, |a, b| a + b);
+    }
+}
+
+impl<'a, S, A, B, E> AddAssign<&'a TensorBase<S, B>> for TensorBase<S, A>
+where
+    S: Dimension,
+    A: DataBuffer<Item = E>,
+    B: DataBuffer<Item = E>,
+    E: DataElement,
+{
+    fn add_assign(&mut self, rhs: &'a TensorBase<S, B>) {
+        self.assign_with(&rhs, |a, b| a + b);
+    }
+}
+
+impl<'a, S, A, E> DivAssign<E> for TensorBase<S, A>
+where
+    S: Dimension,
+    A: DataBuffer<Item = E>,
+    E: DataElement,
+{
+    fn div_assign(&mut self, rhs: E) {
+        let default_strides = self.default_strides();
+        let ptr = self.ptr.as_ptr();
+        for i in 0..self.len() {
+            let assign_at = unsafe { ptr.add(vec_id(nd_index(i, &default_strides), &self.dim, &self.strides)) };
+            unsafe { assign_at.write((*assign_at) / rhs) }
+        }    
+    }
+}
+
 impl_binary_ops!(add, Add);
 impl_binary_ops!(mul, Mul);
 impl_binary_ops!(sub, Sub);
@@ -316,5 +356,19 @@ where
 
         out.put_backward_ops(backops);
         out
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::impl_constructors::tensor;
+
+    #[test]
+    fn div_assign() {
+        let mut a = tensor([[5., 5.], [5., 5.]]);
+        let b = 5.;
+
+        a /= b;
+        assert_eq!(a, tensor([[1., 1.], [1., 1.]]));
     }
 }

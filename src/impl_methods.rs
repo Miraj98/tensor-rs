@@ -136,13 +136,22 @@ where
     where
         B: DataBuffer<Item = A::Item>,
     {
+        self.assign_with(other, |_, y| y);
+    }
+
+    pub fn assign_with<B>(&mut self, other: &TensorBase<S, B>, f: impl Fn(A::Item, B::Item) -> A::Item)
+    where
+        B: DataBuffer<Item = A::Item>,
+    {
         assert_eq!(self.shape(), other.shape());
-        assert!(other.is_standard_layout()); // TODO: relax this. This is being used to be able to create a slice from the data
+        // assert!(other.is_standard_layout()); // TODO: relax this. This is being used to be able to create a slice from the data
         let default_strides = self.default_strides();
         let ptr = self.ptr.as_ptr();
-        for (i, val) in other.as_slice().unwrap().iter().enumerate() {
-            let offset = vec_id(nd_index(i, &default_strides), &self.dim, &self.strides);
-            unsafe { ptr.add(offset).write(*val) };
+        let o_ptr = other.ptr.as_ptr();
+        for i in 0..other.len() {
+            let assign_at = unsafe { ptr.add(vec_id(nd_index(i, &default_strides), &self.dim, &self.strides)) };
+            let assign = unsafe { o_ptr.add(vec_id(nd_index(i, &default_strides), &other.dim, &other.strides)) };
+            unsafe { assign_at.write(f(*assign_at, *assign)) }
         }
     }
 
@@ -349,9 +358,10 @@ mod tests {
     #[test]
     fn assign_test() {
         let mut a = Tensor::ones([3, 3]);
-        let b = Tensor::zeros([2, 2]);
+        let b = Tensor::zeros([4, 4]);
         let mut aview = a.slice_mut_2d(0..2, 0..2);
-        aview.assign(&b);
+        let bview = b.slice_2d(0..2, 0..2);
+        aview.assign(&bview);
         assert_eq!(a, tensor([[0., 0., 1.], [0., 0., 1.], [1., 1., 1.]]));
     }
 }

@@ -156,13 +156,23 @@ where
     {
         assert_eq!(self.shape(), other.shape());
         // assert!(other.is_standard_layout()); // TODO: relax this. This is being used to be able to create a slice from the data
-        let default_strides = self.default_strides();
-        let ptr = self.ptr.as_ptr();
-        let o_ptr = other.ptr.as_ptr();
-        for i in 0..other.len() {
-            let assign_at = unsafe { ptr.add(vec_id(nd_index(i, &default_strides), &self.dim, &self.strides)) };
-            let assign = unsafe { o_ptr.add(vec_id(nd_index(i, &default_strides), &other.dim, &other.strides)) };
-            unsafe { assign_at.write(f(*assign_at, *assign)) }
+        if self.is_standard_layout() && other.is_standard_layout() {
+            let self_ptr = self.ptr.as_ptr();
+            let rhs_ptr = other.ptr.as_ptr();
+            for i in 0..self.len() {
+                let assign_at = unsafe { self_ptr.add(i) };
+                let rhs_at = unsafe { rhs_ptr.add(i) };
+                unsafe { assign_at.write(f(*assign_at, *rhs_at)) }
+            } 
+        } else {
+            let default_strides = self.default_strides();
+            let ptr = self.ptr.as_ptr();
+            let o_ptr = other.ptr.as_ptr();
+            for i in 0..other.len() {
+                let assign_at = unsafe { ptr.add(vec_id(nd_index(i, &default_strides), &self.dim, &self.strides)) };
+                let assign = unsafe { o_ptr.add(vec_id(nd_index(i, &default_strides), &other.dim, &other.strides)) };
+                unsafe { assign_at.write(f(*assign_at, *assign)) }
+            }
         }
     }
 

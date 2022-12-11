@@ -258,18 +258,7 @@ where
     E: DataElement,
 {
     fn mul_assign(&mut self, rhs: TensorBase<S, B>) {
-        assert_eq!(self.shape(), rhs.shape(), "Shape mismatch in add_assign");
-        if self.is_standard_layout() && rhs.is_standard_layout() {
-            let self_ptr = self.ptr.as_ptr();
-            let rhs_ptr = rhs.ptr.as_ptr();
-            for i in 0..self.len() {
-                let assign_at = unsafe { self_ptr.add(i) };
-                let rhs_at = unsafe { rhs_ptr.add(i) };
-                unsafe { assign_at.write((*assign_at) * (*rhs_at)) }
-            } 
-        } else {
-            self.assign_with(&rhs, |a, b| a * b);
-        } 
+        self.assign_with(&rhs, |a, b| a * b);
     }
 }
 
@@ -281,20 +270,10 @@ where
     E: DataElement,
 {
     fn mul_assign(&mut self, rhs: &'a TensorBase<S, B>) {
-        assert_eq!(self.shape(), rhs.shape(), "Shape mismatch in add_assign");
-        if self.is_standard_layout() && rhs.is_standard_layout() {
-            let self_ptr = self.ptr.as_ptr();
-            let rhs_ptr = rhs.ptr.as_ptr();
-            for i in 0..self.len() {
-                let assign_at = unsafe { self_ptr.add(i) };
-                let rhs_at = unsafe { rhs_ptr.add(i) };
-                unsafe { assign_at.write((*assign_at) * (*rhs_at)) }
-            } 
-        } else {
-            self.assign_with(&rhs, |a, b| a * b);
-        } 
+        self.assign_with(&rhs, |a, b| a * b);
     }
 }
+
 
 impl<S, A, B, E> AddAssign<TensorBase<S, B>> for TensorBase<S, A>
 where
@@ -304,18 +283,7 @@ where
     E: DataElement,
 {
     fn add_assign(&mut self, rhs: TensorBase<S, B>) {
-        assert_eq!(self.shape(), rhs.shape(), "Shape mismatch in add_assign");
-        if self.is_standard_layout() && rhs.is_standard_layout() {
-            let self_ptr = self.ptr.as_ptr();
-            let rhs_ptr = rhs.ptr.as_ptr();
-            for i in 0..self.len() {
-                let assign_at = unsafe { self_ptr.add(i) };
-                let rhs_at = unsafe { rhs_ptr.add(i) };
-                unsafe { assign_at.write((*assign_at) + (*rhs_at)) }
-            } 
-        } else {
-            self.assign_with(&rhs, |a, b| a + b);
-        } 
+        self.assign_with(&rhs, |a, b| a + b);
     }
 }
 
@@ -327,18 +295,7 @@ where
     E: DataElement,
 {
     fn sub_assign(&mut self, rhs: TensorBase<S, B>) {
-        assert_eq!(self.shape(), rhs.shape(), "Shape mismatch in add_assign");
-        if self.is_standard_layout() && rhs.is_standard_layout() {
-            let self_ptr = self.ptr.as_ptr();
-            let rhs_ptr = rhs.ptr.as_ptr();
-            for i in 0..self.len() {
-                let assign_at = unsafe { self_ptr.add(i) };
-                let rhs_at = unsafe { rhs_ptr.add(i) };
-                unsafe { assign_at.write((*assign_at) - (*rhs_at)) }
-            } 
-        } else {
-            self.assign_with(&rhs, |a, b| a - b);
-        } 
+        self.assign_with(&rhs, |a, b| a - b); 
     }
 }
 
@@ -350,18 +307,7 @@ where
     E: DataElement,
 {
     fn add_assign(&mut self, rhs: &'a TensorBase<S, B>) {
-        assert_eq!(self.shape(), rhs.shape(), "Shape mismatch in add_assign");
-        if self.is_standard_layout() && rhs.is_standard_layout() {
-            let self_ptr = self.ptr.as_ptr();
-            let rhs_ptr = rhs.ptr.as_ptr();
-            for i in 0..self.len() {
-                let assign_at = unsafe { self_ptr.add(i) };
-                let rhs_at = unsafe { rhs_ptr.add(i) };
-                unsafe { assign_at.write((*assign_at) + (*rhs_at)) }
-            } 
-        } else {
-            self.assign_with(&rhs, |a, b| a + b);
-        }
+        self.assign_with(&rhs, |a, b| a + b);
     }
 }
 
@@ -373,18 +319,7 @@ where
     E: DataElement,
 {
     fn sub_assign(&mut self, rhs: &'a TensorBase<S, B>) {
-        assert_eq!(self.shape(), rhs.shape(), "Shape mismatch in add_assign");
-        if self.is_standard_layout() && rhs.is_standard_layout() {
-            let self_ptr = self.ptr.as_ptr();
-            let rhs_ptr = rhs.ptr.as_ptr();
-            for i in 0..self.len() {
-                let assign_at = unsafe { self_ptr.add(i) };
-                let rhs_at = unsafe { rhs_ptr.add(i) };
-                unsafe { assign_at.write((*assign_at) - (*rhs_at)) }
-            } 
-        } else {
-            self.assign_with(&rhs, |a, b| a - b);
-        }
+        self.assign_with(&rhs, |a, b| a - b);
     }
 }
 
@@ -543,7 +478,7 @@ where
                 if l.1.shape() == r.1.shape() {
                     let g_out = grad_out.into_dimensionality::<L>();
                     let rhs_clone = rhs_clone.into_dimensionality::<L>();
-                    *grad_lhs += g_out * rhs_clone;
+                    *grad_lhs +=  g_out * rhs_clone;
                     let g_out = grad_out.into_dimensionality::<R>();
                     let lhs_clone = lhs_clone.into_dimensionality::<R>();
                     *grad_rhs += g_out * lhs_clone;

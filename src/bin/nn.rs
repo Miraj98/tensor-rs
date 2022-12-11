@@ -6,21 +6,6 @@ use tensor_rs::{
     prelude::{GradientMap, BackwardOps}, Tensor, mnist::{mnist::MnistData, mnist, Dataloader},
 };
 
-
-pub fn flush_denormals_to_zero() {
-    #[cfg(all(target_arch = "x86", target_feature = "sse"))]
-    {
-        use std::arch::x86::{_MM_FLUSH_ZERO_ON, _MM_SET_FLUSH_ZERO_MODE};
-        unsafe { _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON) }
-    }
-
-    #[cfg(all(target_arch = "x86_64", target_feature = "sse"))]
-    {
-        use std::arch::x86_64::{_MM_FLUSH_ZERO_ON, _MM_SET_FLUSH_ZERO_MODE};
-        unsafe { _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON) }
-    }
-}
-
 struct NN {
     w1: Tensor<[usize; 2], f32>,
     b1: Tensor<[usize; 2], f32>,
@@ -71,7 +56,6 @@ impl NN {
         let alpha = lr / batch.len() as f32;
 
         for (i, o) in batch.iter() {
-            let backprop_start = Instant::now();
             let (l, grad) = self.backprop(i, o);
             w1_grad += grad.grad(&self.w1);
             w2_grad += grad.grad(&self.w2);
@@ -90,8 +74,6 @@ impl NN {
         self.w2 -= w2_grad;
         self.b1 -= b1_grad;
         self.b2 -= b2_grad;
-        // println!("Backward ops time: {:?} secs", total_backops_time);
-        // println!("Mini-batch completion time: {:?} secs", start.elapsed().as_secs_f64());
     }
 
     pub fn train(&mut self, batch_size: usize, epochs: usize) {
@@ -112,7 +94,6 @@ impl NN {
 }
 
 fn main() {
-    flush_denormals_to_zero();
     let mut nn = NN::new();
     nn.train(10, 30);
 }

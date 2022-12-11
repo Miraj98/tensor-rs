@@ -88,6 +88,7 @@ impl<A> TensorBase<[usize; 2], A>
 where
     A: DataBuffer<Item = f32>,
 {
+    #[inline]
     pub fn dot<B>(&self, rhs: &TensorBase<[usize; 2], B>) -> Tensor<[usize; 2], f32>
     where
         B: DataBuffer<Item = f32>,

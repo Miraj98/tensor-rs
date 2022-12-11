@@ -16,6 +16,7 @@ macro_rules! impl_binary_ops {
         {
             type Output = Tensor<S, E>;
 
+            #[inline]
             fn $math(self, rhs: TensorBase<S, A>) -> Self::Output {
                 assert_eq!(self.len(), rhs.len());
                 let s_ptr = self.ptr.as_ptr();
@@ -47,6 +48,7 @@ macro_rules! impl_binary_ops {
         {
             type Output = Tensor<S, E>;
 
+            #[inline]
             fn $math(self, rhs: &'a TensorBase<S, A>) -> Self::Output {
                 assert_eq!(self.len(), rhs.len());
                 let s_ptr = self.ptr.as_ptr();
@@ -78,6 +80,7 @@ macro_rules! impl_binary_ops {
         {
             type Output = Tensor<S, E>;
 
+            #[inline]
             fn $math(self, rhs: TensorBase<S, A>) -> Self::Output {
                 assert_eq!(self.len(), rhs.len());
                 let s_ptr = self.ptr.as_ptr();
@@ -109,6 +112,7 @@ macro_rules! impl_binary_ops {
         {
             type Output = Tensor<S, E>;
 
+            #[inline]
             fn $math(self, rhs: &'a TensorBase<S, A>) -> Self::Output {
                 assert_eq!(self.len(), rhs.len());
                 let s_ptr = self.ptr.as_ptr();
@@ -139,6 +143,7 @@ macro_rules! impl_binary_ops {
         {
             type Output = Tensor<S, f32>;
 
+            #[inline]
             fn $math(self, rhs: f32) -> Self::Output {
                 if self.is_standard_layout() {
                     let mut out_vec = Vec::with_capacity(self.len());
@@ -168,6 +173,7 @@ macro_rules! impl_binary_ops {
         {
             type Output = Tensor<S, f64>;
 
+            #[inline]
             fn $math(self, rhs: f64) -> Self::Output {
                 if self.is_standard_layout() {
                     let mut out_vec = Vec::with_capacity(self.len());
@@ -197,6 +203,7 @@ macro_rules! impl_binary_ops {
         {
             type Output = Tensor<S, f32>;
 
+            #[inline]
             fn $math(self, rhs: f32) -> Self::Output {
                 if self.is_standard_layout() {
                     let mut out_vec = Vec::with_capacity(self.len());
@@ -226,6 +233,7 @@ macro_rules! impl_binary_ops {
         {
             type Output = Tensor<S, f64>;
 
+            #[inline]
             fn $math(self, rhs: f64) -> Self::Output {
                 if self.is_standard_layout() {
                     let mut out_vec = Vec::with_capacity(self.len());
@@ -257,6 +265,7 @@ where
     B: DataBuffer<Item = E>,
     E: DataElement,
 {
+    #[inline]
     fn mul_assign(&mut self, rhs: TensorBase<S, B>) {
         self.assign_with(&rhs, |a, b| a * b);
     }
@@ -269,6 +278,7 @@ where
     B: DataBuffer<Item = E>,
     E: DataElement,
 {
+    #[inline]
     fn mul_assign(&mut self, rhs: &'a TensorBase<S, B>) {
         self.assign_with(&rhs, |a, b| a * b);
     }
@@ -282,6 +292,7 @@ where
     B: DataBuffer<Item = E>,
     E: DataElement,
 {
+    #[inline]
     fn add_assign(&mut self, rhs: TensorBase<S, B>) {
         self.assign_with(&rhs, |a, b| a + b);
     }
@@ -294,6 +305,7 @@ where
     B: DataBuffer<Item = E>,
     E: DataElement,
 {
+    #[inline]
     fn sub_assign(&mut self, rhs: TensorBase<S, B>) {
         self.assign_with(&rhs, |a, b| a - b); 
     }
@@ -306,6 +318,7 @@ where
     B: DataBuffer<Item = E>,
     E: DataElement,
 {
+    #[inline]
     fn add_assign(&mut self, rhs: &'a TensorBase<S, B>) {
         self.assign_with(&rhs, |a, b| a + b);
     }
@@ -318,6 +331,7 @@ where
     B: DataBuffer<Item = E>,
     E: DataElement,
 {
+    #[inline]
     fn sub_assign(&mut self, rhs: &'a TensorBase<S, B>) {
         self.assign_with(&rhs, |a, b| a - b);
     }
@@ -329,6 +343,7 @@ where
     A: DataBuffer<Item = E>,
     E: DataElement,
 {
+    #[inline]
     fn mul_assign(&mut self, rhs: E) {
         let default_strides = self.default_strides();
         if default_strides.shape() == self.strides.shape() {

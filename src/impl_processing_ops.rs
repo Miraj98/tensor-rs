@@ -46,17 +46,17 @@ where
     B: DataBuffer<Item = E>,
     E: DataElement + 'static,
 {
-    type Output = Tensor<S, E>;
+    type Output = Tensor<[usize; 2], E>;
 
     fn conv2d(&self, rhs: &TensorBase<S, B>, strides: (usize, usize)) -> Self::Output {
         assert!(self.ndim() >= 2);
         let (sx, sy) = strides;
         let c = self.ndim();
-        let mut out_dim = self.dim();
-        out_dim[c - 2] = (self.dim[c - 2] - rhs.dim[c - 2]) / sy + 1;
-        out_dim[c - 1] = (self.dim[c - 1] - rhs.dim[c - 1]) / sx + 1;
-        let h = out_dim[c - 2];
-        let w = out_dim[c - 1];
+        let mut out_dim = [0, 0];
+        out_dim[0] = (self.dim[c - 2] - rhs.dim[c - 2]) / sy + 1;
+        out_dim[1] = (self.dim[c - 1] - rhs.dim[c - 1]) / sx + 1;
+        let h = out_dim[0];
+        let w = out_dim[1];
         let out: Tensor<_, E> = Tensor::zeros(out_dim);
         let out_ptr = out.ptr.as_ptr();
 
@@ -124,7 +124,10 @@ where
 #[cfg(test)]
 mod tests {
     use super::{Conv2d, Matmul};
-    use crate::{impl_constructors::{tensor, TensorConstructors}, Tensor};
+    use crate::{
+        impl_constructors::{tensor, TensorConstructors},
+        Tensor,
+    };
 
     #[test]
     fn matmul_backward_ops_test() {
@@ -142,10 +145,18 @@ mod tests {
 
     #[test]
     fn conv() {
-        let a = tensor([[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
-        let b = tensor([[1., 2.], [3., 4.]]);
+        let a = tensor([
+            [[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]],
+            [[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]],
+            [[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]],
+        ]);
+        let b = tensor([
+            [[1., 2.], [3., 4.]],
+            [[1., 2.], [3., 4.]],
+            [[1., 2.], [3., 4.]],
+        ]);
         let c = a.conv2d(&b, (1, 1));
 
-        assert_eq!(c, tensor([[37., 47.], [67., 77.]]));
+        assert_eq!(c, tensor([[37., 47.], [67., 77.]]) * 3.);
     }
 }

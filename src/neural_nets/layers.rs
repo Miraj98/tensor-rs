@@ -1,6 +1,6 @@
 use crate::{
     impl_binary_ops::TensorBinaryOps, impl_constructors::TensorConstructors,
-    impl_processing_ops::Matmul, Tensor, DataElement,
+    impl_processing_ops::Matmul, DataElement, Tensor,
 };
 
 pub trait Layer<Input> {
@@ -9,12 +9,18 @@ pub trait Layer<Input> {
     fn forward(&self, input: Input) -> Self::Output;
 }
 
-pub struct Linear<A> where A: DataElement {
+pub struct Linear<A>
+where
+    A: DataElement,
+{
     w: Tensor<[usize; 2], A>,
     b: Tensor<[usize; 2], A>,
 }
 
-impl<A> Linear<A> where A: DataElement {
+impl<A> Linear<A>
+where
+    A: DataElement,
+{
     pub fn new(dim: [usize; 2]) -> Self {
         Self {
             w: Tensor::randn(dim).requires_grad(true),
@@ -39,12 +45,44 @@ impl Layer<&Tensor<[usize; 2]>> for Linear<f32> {
     }
 }
 
+pub struct Conv2d {
+    w: Tensor<[usize; 4]>,
+    b: Tensor<[usize; 4]>,
+    strides: (usize, usize),
+}
+
+impl Conv2d {
+    pub fn new(
+        input_channels: usize,
+        output_channels: usize,
+        kernel_size: (usize, usize),
+        strides: (usize, usize),
+    ) -> Self {
+        Self {
+            w: Tensor::randn([output_channels, input_channels, kernel_size.0, kernel_size.1]).requires_grad(true),
+            b: Tensor::randn([output_channels, 1, 1, 1]).requires_grad(true),
+            strides,
+        }
+    }
+
+    pub fn bias(&self) -> &Tensor<[usize; 4]> {
+        &self.b
+    }
+
+    pub fn weight(&self) -> &Tensor<[usize; 4]> {
+        &self.w
+    }
+
+    pub fn strides(&self) -> (usize, usize) {
+        self.strides
+    }
+}
 
 #[cfg(test)]
 mod tests {
     use crate::{impl_reduce_ops::ReduceOps, Tensor};
 
-    use super::{Linear, Layer};
+    use super::{Layer, Linear};
 
     #[test]
     fn linear() {

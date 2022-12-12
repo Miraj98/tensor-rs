@@ -11,6 +11,7 @@ pub mod impl_reduce_ops;
 pub mod impl_traits;
 pub mod impl_unary_ops;
 
+pub mod neural_nets;
 pub mod mnist;
 
 use std::{

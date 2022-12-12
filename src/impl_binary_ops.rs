@@ -166,6 +166,66 @@ macro_rules! impl_binary_ops {
             }
         }
 
+        impl<S, A> $trait<&TensorBase<S, A>> for f32
+        where
+            S: Dimension,
+            A: DataBuffer<Item = f32>,
+        {
+            type Output = Tensor<S, f32>;
+
+            #[inline]
+            fn $math(self, rhs: &TensorBase<S, A>) -> Self::Output {
+                if rhs.is_standard_layout() {
+                    let mut out_vec = Vec::with_capacity(rhs.len());
+                    unsafe {
+                        let ptr = rhs.ptr.as_ptr();
+                        for i in 0..rhs.len() {
+                            out_vec.push(ptr.add(i).read().$math(self));
+                        }
+                    }
+                    Tensor::from_vec(out_vec, rhs.dim.clone()).leaf(false)
+                } else {
+                    let strides = rhs.default_strides();
+                    let mut out_vec = Vec::with_capacity(rhs.len());
+                    for i in 0..rhs.len() {
+                        let idx = nd_index(i, &strides);
+                        out_vec.push(rhs[idx].$math(self));
+                    }
+                    Tensor::from_vec(out_vec, rhs.dim.clone()).leaf(false)
+                }
+            }
+        }
+
+        impl<S, A> $trait<&TensorBase<S, A>> for f64
+        where
+            S: Dimension,
+            A: DataBuffer<Item = f64>,
+        {
+            type Output = Tensor<S, f64>;
+
+            #[inline]
+            fn $math(self, rhs: &TensorBase<S, A>) -> Self::Output {
+                if rhs.is_standard_layout() {
+                    let mut out_vec = Vec::with_capacity(rhs.len());
+                    unsafe {
+                        let ptr = rhs.ptr.as_ptr();
+                        for i in 0..rhs.len() {
+                            out_vec.push(ptr.add(i).read().$math(self));
+                        }
+                    }
+                    Tensor::from_vec(out_vec, rhs.dim.clone()).leaf(false)
+                } else {
+                    let strides = rhs.default_strides();
+                    let mut out_vec = Vec::with_capacity(rhs.len());
+                    for i in 0..rhs.len() {
+                        let idx = nd_index(i, &strides);
+                        out_vec.push(rhs[idx].$math(self));
+                    }
+                    Tensor::from_vec(out_vec, rhs.dim.clone()).leaf(false)
+                }
+            }
+        }
+
         impl<S, A> $trait<f64> for TensorBase<S, A>
         where
             S: Dimension,

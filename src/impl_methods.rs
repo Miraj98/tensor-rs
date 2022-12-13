@@ -111,6 +111,29 @@ where
         }
     }
 
+    pub fn outer_dim(&self, i: usize) -> TensorView<'_, S::Smaller, A::Item> {
+        assert!(i < self.dim[0]);
+        let mut ptr = self.ptr.as_ptr();
+        unsafe { ptr = ptr.add(i * self.strides[0]) };
+        let mut dim = S::Smaller::ones();
+        let mut strides = S::Smaller::ones();
+        for i in 1..self.dim.ndim() {
+            dim[i - 1] = self.dim[i];
+            strides[i - 1] = self.strides[i];
+        }
+
+        TensorView {
+            id: self.id,
+            dim,
+            strides,
+            is_leaf: self.is_leaf,
+            ptr: NonNull::new(ptr).unwrap(),
+            data: ViewData { marker: std::marker::PhantomData },
+            backward_ops: RefCell::new(None),
+            requires_grad: self.requires_grad,
+        }
+    }
+
     pub fn slice_2d(&self, dx: Range<usize>, dy: Range<usize>) -> TensorView<'_, S, A::Item> {
         assert!(self.ndim() >= 2);
         let n = self.ndim();

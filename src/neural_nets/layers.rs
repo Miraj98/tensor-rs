@@ -1,6 +1,7 @@
 use crate::{
+    TensorBase,
     impl_binary_ops::TensorBinaryOps, impl_constructors::TensorConstructors,
-    impl_processing_ops::Matmul, DataElement, Tensor,
+    impl_processing_ops::{Matmul, Conv2d as Convolution2d}, DataBuffer, DataElement, Tensor,
 };
 
 pub trait Layer<Input> {
@@ -45,13 +46,19 @@ impl Layer<&Tensor<[usize; 2]>> for Linear<f32> {
     }
 }
 
-pub struct Conv2d {
-    w: Tensor<[usize; 4]>,
-    b: Tensor<[usize; 4]>,
+pub struct Conv2d<E> 
+where
+    E: DataElement
+{
+    w: Tensor<[usize; 4], E>,
+    b: Tensor<[usize; 4], E>,
     strides: (usize, usize),
 }
 
-impl Conv2d {
+impl<E> Conv2d<E>
+where
+    E: DataElement + 'static
+{
     pub fn new(
         input_channels: usize,
         output_channels: usize,
@@ -65,11 +72,11 @@ impl Conv2d {
         }
     }
 
-    pub fn bias(&self) -> &Tensor<[usize; 4]> {
+    pub fn bias(&self) -> &Tensor<[usize; 4], E> {
         &self.b
     }
 
-    pub fn weight(&self) -> &Tensor<[usize; 4]> {
+    pub fn weight(&self) -> &Tensor<[usize; 4], E> {
         &self.w
     }
 
@@ -77,6 +84,23 @@ impl Conv2d {
         self.strides
     }
 }
+
+/*
+impl<B> Layer<TensorBase<[usize; 3], B>> for Conv2d<f32>
+where
+    B: DataBuffer<Item = f32> + 'static,
+{
+    type Output = Option<i32>;
+    fn forward(&self, input: TensorBase<[usize; 3], B>) -> Self::Output {
+        for _ in 0..input.dim[0] {
+            let _w = self.w.outer_dim(0);
+            let out = input.conv2d(&_w, (1, 1));
+            println!("{:?}", out);
+        }
+        None
+    }
+}
+*/
 
 #[cfg(test)]
 mod tests {

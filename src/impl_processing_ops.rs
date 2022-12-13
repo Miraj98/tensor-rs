@@ -39,35 +39,35 @@ where
     }
 }
 
-impl<S, A, B, E> Conv2d<TensorBase<S, B>> for TensorBase<S, A>
+impl<A, B, E> Conv2d<TensorBase<[usize; 4], B>> for TensorBase<[usize; 3], A>
 where
-    S: Dimension + 'static,
     A: DataBuffer<Item = E>,
     B: DataBuffer<Item = E>,
     E: DataElement + 'static,
 {
-    type Output = Tensor<[usize; 2], E>;
+    type Output = Tensor<[usize; 3], E>;
 
-    fn conv2d(&self, rhs: &TensorBase<S, B>, strides: (usize, usize)) -> Self::Output {
+    fn conv2d(&self, rhs: &TensorBase<[usize; 4], B>, strides: (usize, usize)) -> Self::Output {
         assert!(self.ndim() >= 2);
         let (sx, sy) = strides;
-        let c = self.ndim();
-        let mut out_dim = [0, 0];
-        out_dim[0] = (self.dim[c - 2] - rhs.dim[c - 2]) / sy + 1;
-        out_dim[1] = (self.dim[c - 1] - rhs.dim[c - 1]) / sx + 1;
-        let h = out_dim[0];
-        let w = out_dim[1];
+        let mut out_dim = [rhs.dim[0], 0, 0];
+        out_dim[1] = (self.dim[1] - rhs.dim[2]) / sy + 1;
+        out_dim[2] = (self.dim[2] - rhs.dim[3]) / sx + 1;
+        let h = out_dim[1];
+        let w = out_dim[2];
         let out: Tensor<_, E> = Tensor::zeros(out_dim);
         let out_ptr = out.ptr.as_ptr();
 
-        for x in 0..w {
-            for y in 0..h {
-                let slc = self.slice_2d(
-                    (x * sx)..(rhs.dim[c - 1] + x * sx),
-                    (y * sy)..(rhs.dim[c - 2] + y * sy),
-                );
-                let o = (slc * rhs).sum();
-                unsafe { *out_ptr.add(y * w + x) = o.ptr.as_ptr().read() };
+        for i in 0..rhs.dim[0] {
+            for x in 0..w {
+                for y in 0..h {
+                    let slc = self.slice_2d(
+                        (x * sx)..(rhs.dim[3] + x * sx),
+                        (y * sy)..(rhs.dim[2] + y * sy),
+                    );
+                    let o = (slc * rhs.outer_dim(i)).sum();
+                    unsafe { *out_ptr.add(i * x * y + y * w + x) = o.ptr.as_ptr().read() };
+                }
             }
         }
 
@@ -150,13 +150,13 @@ mod tests {
             [[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]],
             [[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]],
         ]);
-        let b = tensor([
+        let b = tensor([[
             [[1., 2.], [3., 4.]],
             [[1., 2.], [3., 4.]],
             [[1., 2.], [3., 4.]],
-        ]);
+        ]]);
         let c = a.conv2d(&b, (1, 1));
 
-        assert_eq!(c, tensor([[37., 47.], [67., 77.]]) * 3.);
+        assert_eq!(c, tensor([[[37., 47.], [67., 77.]]]) * 3.);
     }
 }

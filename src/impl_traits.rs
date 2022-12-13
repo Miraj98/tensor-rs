@@ -1,4 +1,6 @@
-use crate::{dim::Dimension, utils::nd_index, DataElement, Tensor, TensorBase, TensorView, DataBuffer};
+use crate::{
+    dim::Dimension, utils::nd_index, DataBuffer, DataElement, Tensor, TensorBase, TensorView,
+};
 use std::{cell::RefCell, ops::Index};
 
 impl<S, A> Index<S> for TensorBase<S, A>

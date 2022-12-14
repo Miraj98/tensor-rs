@@ -85,6 +85,14 @@ where
         }
     }
 
+    pub fn invert_axis(&mut self, i: usize) {
+        let m = self.dim[i];
+        let s = self.strides[i] as isize;
+        let ptr = self.ptr.as_ptr();
+        unsafe { self.ptr = NonNull::new(ptr.offset((m - 1) as isize * s)).unwrap() }
+        self.strides[i] = (-s) as usize;
+    }
+
     pub fn map(&self, mut f: impl FnMut(&A::Item) -> A::Item) -> Tensor<S, A::Item> {
         if let Some(slc) = self.as_slice() {
             let new_data = slc.iter().map(f).collect();
@@ -435,5 +443,14 @@ mod tests {
         let bview = b.slice_2d(0..2, 0..2);
         aview.assign(&bview);
         assert_eq!(a, tensor([[0., 0., 1.], [0., 0., 1.], [1., 1., 1.]]));
+    }
+
+    #[test]
+    fn invert_axis() {
+        let mut a = tensor([[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]);
+        a.invert_axis(0);
+        assert_eq!(a, tensor([[7., 8., 9.], [4., 5., 6.], [1., 2., 3.]]));
+        a.invert_axis(1);
+        assert_eq!(a, tensor([[9., 8., 7.], [6., 5., 4.], [3., 2., 1.]]));
     }
 }

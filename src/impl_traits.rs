@@ -1,7 +1,7 @@
 use crate::{
     dim::Dimension, utils::nd_index, DataBuffer, DataElement, Tensor, TensorBase, TensorView,
 };
-use std::{cell::RefCell, ops::Index};
+use std::{cell::RefCell, ops::Index, iter::zip};
 
 impl<S, A> Index<S> for TensorBase<S, A>
 where
@@ -12,13 +12,18 @@ where
 
     fn index(&self, index: S) -> &Self::Output {
         assert_eq!(self.strides.slice().len(), index.slice().len());
-        let i = self
-            .strides
-            .slice()
-            .iter()
-            .zip(index.slice().iter())
-            .fold(0, |acc, (stride, index)| acc + stride * index);
-        unsafe { self.ptr.as_ptr().add(i).as_ref().unwrap() }
+        for (i, v) in index.slice().iter().enumerate() {
+            assert!(*v < self.dim.slice()[i]);
+        }
+        let s = self.strides.slice().iter();
+        let m = index.slice().iter();
+        let mut offset: isize = 0;
+
+        for (i, j) in zip(s, m) {
+            offset += (*i) as isize * (*j) as isize;
+        }
+
+        unsafe { self.ptr.as_ptr().offset(offset).as_ref().unwrap() }
     }
 }
 

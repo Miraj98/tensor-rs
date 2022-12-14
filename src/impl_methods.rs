@@ -452,5 +452,8 @@ mod tests {
         assert_eq!(a, tensor([[7., 8., 9.], [4., 5., 6.], [1., 2., 3.]]));
         a.invert_axis(1);
         assert_eq!(a, tensor([[9., 8., 7.], [6., 5., 4.], [3., 2., 1.]]));
+        a.invert_axis(0);
+        a.invert_axis(1);
+        assert_eq!(a, tensor([[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]));
     }
 }

@@ -40,7 +40,7 @@ where
             dim: self.dim.clone(),
             strides: self.strides.clone(),
             is_leaf: self.is_leaf,
-            requires_grad: self.requires_grad,
+            requires_grad: false,
             backward_ops: RefCell::new(None),
         }
     }

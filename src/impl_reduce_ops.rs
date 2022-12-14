@@ -1,5 +1,5 @@
 use crate::{
-    dim::Dimension, impl_constructors::TensorConstructors, utils::nd_index, DataBuffer,
+    dim::{Dimension, Ix0}, impl_constructors::TensorConstructors, utils::nd_index, DataBuffer,
     DataElement, Tensor, TensorBase,
 };
 
@@ -15,7 +15,7 @@ where
     A: DataBuffer<Item = E> + 'static,
     E: DataElement + 'static,
 {
-    type Output = Tensor<[usize; 0], E>;
+    type Output = Tensor<Ix0, E>;
 
     fn sum(&self) -> Self::Output {
         let sum = {

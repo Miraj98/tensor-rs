@@ -1,4 +1,4 @@
-use crate::{dim::Dimension, DataElement, Tensor, TensorBase};
+use crate::{dim::{Dimension, Ix1, Ix2, Ix3, Ix4}, DataElement, Tensor, TensorBase};
 
 pub trait TensorConstructors<Dtype>
 where
@@ -45,7 +45,7 @@ pub fn tensor<A: IntoTensor>(a: A) -> A::Output {
 
 impl<const N: usize, A: DataElement> IntoTensor for [A; N] {
     type Dtype = A;
-    type Output = Tensor<[usize; 1], A>;
+    type Output = Tensor<Ix1, A>;
 
     fn into_tensor(a: Self) -> Self::Output {
         TensorBase::from_vec(a.to_vec(), [N])
@@ -54,7 +54,7 @@ impl<const N: usize, A: DataElement> IntoTensor for [A; N] {
 
 impl<const M: usize, const N: usize, A: DataElement> IntoTensor for [[A; N]; M] {
     type Dtype = A;
-    type Output = Tensor<[usize; 2], A>;
+    type Output = Tensor<Ix2, A>;
 
     fn into_tensor(a: Self) -> Self::Output {
         let mut v = Vec::with_capacity(M * N);
@@ -71,7 +71,7 @@ impl<const M: usize, const N: usize, const P: usize, A: DataElement> IntoTensor
     for [[[A; P]; N]; M]
 {
     type Dtype = A;
-    type Output = Tensor<[usize; 3], A>;
+    type Output = Tensor<Ix3, A>;
 
     fn into_tensor(a: Self) -> Self::Output {
         let mut v = Vec::with_capacity(M * N * P);
@@ -90,7 +90,7 @@ impl<const M: usize, const N: usize, const P: usize, const Q: usize, A: DataElem
     IntoTensor for [[[[A; Q]; P]; N]; M]
 {
     type Dtype = A;
-    type Output = Tensor<[usize; 4], A>;
+    type Output = Tensor<Ix4, A>;
 
     fn into_tensor(a: Self) -> Self::Output {
         let mut v = Vec::with_capacity(M * N * P * Q);

@@ -25,22 +25,22 @@ where
 }
 
 pub trait Dimension:
-    Clone + Eq + Index<usize, Output = usize> + IndexMut<usize, Output = usize> + Debug
+    Clone + Eq + Index<usize, Output = Ix> + IndexMut<usize, Output = Ix> + Debug
 {
     const NDIM: usize;
     type Smaller: Dimension;
     type Larger: Dimension;
 
     fn ndim(&self) -> usize;
-    fn shape(&self) -> &[usize];
-    fn slice(&self) -> &[usize];
-    fn slice_mut(&mut self) -> &mut [usize];
+    fn shape(&self) -> &[Ix];
+    fn slice(&self) -> &[Ix];
+    fn slice_mut(&mut self) -> &mut [Ix];
     fn rev(&self) -> Self;
     fn count(&self) -> usize;
     fn into_dimensionality<D2>(&self) -> D2
     where
         D2: Dimension;
-    fn get_iter(&self) -> Iter<'_, usize>;
+    fn get_iter(&self) -> Iter<'_, Ix>;
     fn ones() -> Self;
     fn zeros() -> Self;
 }
@@ -56,15 +56,15 @@ macro_rules! impl_dimension {
                 $ndim
             }
 
-            fn shape(&self) -> &[usize] {
+            fn shape(&self) -> &[Ix] {
                 &self[..]
             }
 
-            fn slice(&self) -> &[usize] {
+            fn slice(&self) -> &[Ix] {
                 &self[..]
             }
 
-            fn slice_mut(&mut self) -> &mut [usize] {
+            fn slice_mut(&mut self) -> &mut [Ix] {
                 &mut self[..]
             }
 
@@ -85,7 +85,7 @@ macro_rules! impl_dimension {
                 unsafe { unlimited_transmute::<Self, D2>(self.clone()) }
             }
 
-            fn get_iter(&self) -> Iter<'_, usize> {
+            fn get_iter(&self) -> Iter<'_, Ix> {
                 self.iter()
             }
 

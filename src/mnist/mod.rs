@@ -1,12 +1,12 @@
-use crate::Tensor;
+use crate::{Tensor, dim::Ix2};
 
 pub trait Dataloader {
-    fn get_by_idx(&self, idx: usize) -> (Tensor<[usize; 2], f32>, Tensor<[usize; 2], f32>);
+    fn get_by_idx(&self, idx: usize) -> (Tensor<Ix2, f32>, Tensor<Ix2, f32>);
     fn get_batch(
         &self,
         batch_size: usize,
         batch_idx: usize,
-    ) -> Vec<(Tensor<[usize; 2], f32>, Tensor<[usize; 2], f32>)>;
+    ) -> Vec<(Tensor<Ix2, f32>, Tensor<Ix2, f32>)>;
     fn size(&self) -> u16;
 }
 
@@ -14,7 +14,7 @@ pub const PX_SIZE: usize = 28;
 
 pub mod mnist {
     use std::{fs, time::Instant};
-    use crate::{impl_constructors::TensorConstructors, Tensor};
+    use crate::{impl_constructors::TensorConstructors, Tensor, dim::Ix2};
     use super::{Dataloader, PX_SIZE};
 
     pub struct MnistData {
@@ -32,7 +32,7 @@ pub mod mnist {
     }
 
     impl Dataloader for MnistData {
-        fn get_by_idx(&self, idx: usize) -> (Tensor<[usize; 2], f32>, Tensor<[usize; 2], f32>) {
+        fn get_by_idx(&self, idx: usize) -> (Tensor<Ix2, f32>, Tensor<Ix2, f32>) {
             return (
                 self.get_image_nn_input(idx),
                 self.get_image_label_vector(idx),
@@ -43,9 +43,9 @@ pub mod mnist {
             &self,
             batch_size: usize,
             batch_idx: usize,
-        ) -> Vec<(Tensor<[usize; 2], f32>, Tensor<[usize; 2], f32>)> {
-            let start = Instant::now();
-            let mut b = Vec::<(Tensor<[usize; 2], f32>, Tensor<[usize; 2], f32>)>::new();
+        ) -> Vec<(Tensor<Ix2, f32>, Tensor<Ix2, f32>)> {
+            let _start = Instant::now();
+            let mut b = Vec::<(Tensor<Ix2, f32>, Tensor<Ix2, f32>)>::new();
 
             if self.size() % batch_size as u16 != 0 {
                 panic!("Batch size must be a whole factor of the total dataset size")
@@ -74,7 +74,7 @@ pub mod mnist {
             self.raw_labels_data[idx + 8]
         }
 
-        pub fn get_image_label_vector(&self, idx: usize) -> Tensor<[usize; 2], f32> {
+        pub fn get_image_label_vector(&self, idx: usize) -> Tensor<Ix2, f32> {
             let out = Tensor::<_, f32>::zeros([10, 1]);
             let ptr = out.ptr.as_ptr();
             let offset = self.get_image_label(idx) as usize;
@@ -84,7 +84,7 @@ pub mod mnist {
             return out;
         }
 
-        pub fn get_image_nn_input(&self, idx: usize) -> Tensor<[usize; 2], f32> {
+        pub fn get_image_nn_input(&self, idx: usize) -> Tensor<Ix2, f32> {
             let buf = self
                 .get_img_buffer(idx)
                 .to_vec()

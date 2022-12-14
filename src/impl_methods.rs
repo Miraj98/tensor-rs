@@ -1,7 +1,7 @@
 use std::{cell::RefCell, ops::Range, ptr::NonNull};
 
 use crate::{
-    dim::Dimension,
+    dim::{Dimension, Ix0},
     gradient::{BackwardOps, GradientMap},
     impl_constructors::TensorConstructors,
     unique_id::unique_id,
@@ -114,7 +114,7 @@ where
     pub fn outer_dim(&self, i: usize) -> TensorView<'_, S::Smaller, A::Item> {
         assert!(i < self.dim[0]);
         let mut ptr = self.ptr.as_ptr();
-        unsafe { ptr = ptr.add(i * self.strides[0]) };
+        unsafe { ptr = ptr.offset(i as isize * self.strides[0] as isize) };
         let mut dim = S::Smaller::ones();
         let mut strides = S::Smaller::ones();
         for i in 1..self.dim.ndim() {
@@ -128,7 +128,9 @@ where
             strides,
             is_leaf: self.is_leaf,
             ptr: NonNull::new(ptr).unwrap(),
-            data: ViewData { marker: std::marker::PhantomData },
+            data: ViewData {
+                marker: std::marker::PhantomData,
+            },
             backward_ops: RefCell::new(None),
             requires_grad: self.requires_grad,
         }
@@ -141,10 +143,16 @@ where
         out_dim[n - 1] = dx.end - dx.start;
         out_dim[n - 2] = dy.end - dy.start;
 
-        let (rs, cs) = (self.strides[n - 2], self.strides[n - 1]);
+        let (rs, cs) = (self.strides[n - 2] as isize, self.strides[n - 1] as isize);
         let (ox, oy) = (dx.start, dy.start);
 
-        let ptr = unsafe { NonNull::new_unchecked(self.ptr.as_ptr().add(ox * cs + oy * rs)) };
+        let ptr = unsafe {
+            NonNull::new_unchecked(
+                self.ptr
+                    .as_ptr()
+                    .offset(ox as isize * cs + oy as isize * rs),
+            )
+        };
         self.view_from_data_ptr_and_dim(ptr, out_dim)
     }
 
@@ -159,10 +167,16 @@ where
         out_dim[n - 1] = dx.end - dx.start;
         out_dim[n - 2] = dy.end - dy.start;
 
-        let (rs, cs) = (self.strides[n - 2], self.strides[n - 1]);
+        let (rs, cs) = (self.strides[n - 2] as isize, self.strides[n - 1] as isize);
         let (ox, oy) = (dx.start, dy.start);
 
-        let ptr = unsafe { NonNull::new_unchecked(self.ptr.as_ptr().add(ox * cs + oy * rs)) };
+        let ptr = unsafe {
+            NonNull::new_unchecked(
+                self.ptr
+                    .as_ptr()
+                    .offset(ox as isize * cs + oy as isize * rs),
+            )
+        };
         self.view_mut_from_data_ptr_and_dim(ptr, out_dim)
     }
 
@@ -173,12 +187,14 @@ where
         self.assign_with(other, |_, y| y);
     }
 
-    pub fn assign_with<B>(&mut self, other: &TensorBase<S, B>, f: impl Fn(A::Item, B::Item) -> A::Item)
-    where
+    pub fn assign_with<B>(
+        &mut self,
+        other: &TensorBase<S, B>,
+        f: impl Fn(A::Item, B::Item) -> A::Item,
+    ) where
         B: DataBuffer<Item = A::Item>,
     {
         assert_eq!(self.shape(), other.shape());
-        // assert!(other.is_standard_layout()); // TODO: relax this. This is being used to be able to create a slice from the data
         if self.is_standard_layout() && other.is_standard_layout() {
             let self_ptr = self.ptr.as_ptr();
             let rhs_ptr = other.ptr.as_ptr();
@@ -186,14 +202,26 @@ where
                 let assign_at = unsafe { self_ptr.add(i) };
                 let rhs_at = unsafe { rhs_ptr.add(i) };
                 unsafe { assign_at.write(f(*assign_at, *rhs_at)) }
-            } 
+            }
         } else {
             let default_strides = self.default_strides();
             let ptr = self.ptr.as_ptr();
             let o_ptr = other.ptr.as_ptr();
             for i in 0..other.len() {
-                let assign_at = unsafe { ptr.add(vec_id(nd_index(i, &default_strides), &self.dim, &self.strides)) };
-                let assign = unsafe { o_ptr.add(vec_id(nd_index(i, &default_strides), &other.dim, &other.strides)) };
+                let assign_at = unsafe {
+                    ptr.add(vec_id(
+                        nd_index(i, &default_strides),
+                        &self.dim,
+                        &self.strides,
+                    ))
+                };
+                let assign = unsafe {
+                    o_ptr.add(vec_id(
+                        nd_index(i, &default_strides),
+                        &other.dim,
+                        &other.strides,
+                    ))
+                };
                 unsafe { assign_at.write(f(*assign_at, *assign)) }
             }
         }
@@ -353,7 +381,7 @@ where
     }
 }
 
-impl<A> TensorBase<[usize; 0], A>
+impl<A> TensorBase<Ix0, A>
 where
     A: DataBuffer,
 {

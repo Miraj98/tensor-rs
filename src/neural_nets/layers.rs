@@ -1,7 +1,7 @@
 use crate::{
     TensorBase,
     impl_binary_ops::TensorBinaryOps, impl_constructors::TensorConstructors,
-    impl_processing_ops::{Matmul, Conv2d as Convolution2d}, DataBuffer, DataElement, Tensor,
+    impl_processing_ops::{Matmul, Conv2d as Convolution2d}, DataBuffer, DataElement, Tensor, dim::{Ix2, Ix4, Ix3},
 };
 
 pub trait Layer<Input> {
@@ -14,34 +14,34 @@ pub struct Linear<A>
 where
     A: DataElement,
 {
-    w: Tensor<[usize; 2], A>,
-    b: Tensor<[usize; 2], A>,
+    w: Tensor<Ix2, A>,
+    b: Tensor<Ix2, A>,
 }
 
 impl<A> Linear<A>
 where
     A: DataElement,
 {
-    pub fn new(dim: [usize; 2]) -> Self {
+    pub fn new(dim: Ix2) -> Self {
         Self {
             w: Tensor::randn(dim).requires_grad(true),
             b: Tensor::randn([dim[0], 1]).requires_grad(true),
         }
     }
 
-    pub fn bias(&self) -> &Tensor<[usize; 2], A> {
+    pub fn bias(&self) -> &Tensor<Ix2, A> {
         &self.b
     }
 
-    pub fn weight(&self) -> &Tensor<[usize; 2], A> {
+    pub fn weight(&self) -> &Tensor<Ix2, A> {
         &self.w
     }
 }
 
-impl Layer<&Tensor<[usize; 2]>> for Linear<f32> {
-    type Output = Tensor<[usize; 2]>;
+impl Layer<&Tensor<Ix2>> for Linear<f32> {
+    type Output = Tensor<Ix2>;
 
-    fn forward(&self, input: &Tensor<[usize; 2]>) -> Self::Output {
+    fn forward(&self, input: &Tensor<Ix2>) -> Self::Output {
         self.w.matmul(input).add(&self.b)
     }
 }
@@ -50,8 +50,8 @@ pub struct Conv2d<E>
 where
     E: DataElement
 {
-    w: Tensor<[usize; 4], E>,
-    b: Tensor<[usize; 4], E>,
+    w: Tensor<Ix4, E>,
+    b: Tensor<Ix4, E>,
     strides: (usize, usize),
 }
 
@@ -72,11 +72,11 @@ where
         }
     }
 
-    pub fn bias(&self) -> &Tensor<[usize; 4], E> {
+    pub fn bias(&self) -> &Tensor<Ix4, E> {
         &self.b
     }
 
-    pub fn weight(&self) -> &Tensor<[usize; 4], E> {
+    pub fn weight(&self) -> &Tensor<Ix4, E> {
         &self.w
     }
 
@@ -85,22 +85,16 @@ where
     }
 }
 
-/*
-impl<B> Layer<TensorBase<[usize; 3], B>> for Conv2d<f32>
+impl<B, E> Layer<&TensorBase<Ix3, B>> for Conv2d<E>
 where
-    B: DataBuffer<Item = f32> + 'static,
+    B: DataBuffer<Item = E> + 'static,
+    E: DataElement + 'static
 {
-    type Output = Option<i32>;
-    fn forward(&self, input: TensorBase<[usize; 3], B>) -> Self::Output {
-        for _ in 0..input.dim[0] {
-            let _w = self.w.outer_dim(0);
-            let out = input.conv2d(&_w, (1, 1));
-            println!("{:?}", out);
-        }
-        None
+    type Output = Tensor<Ix3, E>;
+    fn forward(&self, input: &TensorBase<Ix3, B>) -> Self::Output {
+       input.conv2d(&self.w, (1, 1)) 
     }
 }
-*/
 
 #[cfg(test)]
 mod tests {

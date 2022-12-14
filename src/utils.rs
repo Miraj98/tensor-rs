@@ -1,5 +1,6 @@
 use crate::{
-    prelude::{BackwardOps, Merge}, DataElement, DataBuffer,
+    prelude::{BackwardOps, Merge},
+    DataBuffer, DataElement,
 };
 use crate::{Tensor, TensorBase};
 use num_integer::Integer;
@@ -42,7 +43,7 @@ pub fn nd_index<S>(id: usize, default_strides: &S) -> S
 where
     S: Dimension,
 {
-   tnsr_idx(id, default_strides)
+    tnsr_idx(id, default_strides)
 }
 
 pub fn vec_id<S>(tnsr_idx: S, dims: &S, strides: &S) -> usize
@@ -52,8 +53,7 @@ where
     let id = tnsr_idx
         .get_iter()
         .enumerate()
-        .fold(0, |acc, (i, val)| acc + strides[i] * (val % dims[i]));
-
+        .fold(0, |acc, (i, val)| acc + strides[i] * (val % dims[i])); // TODO: Might be problematic because strides is meant to be parsed as isize
     id
 }
 

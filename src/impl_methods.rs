@@ -325,12 +325,24 @@ where
         self_view
     }
 
-    pub fn reshape(&self, dim: S) -> TensorView<'_, S, A::Item> {
+    pub fn reshape<S2>(&self, dim: S2) -> TensorView<'_, S2, A::Item>
+    where
+        S2: Dimension,
+    {
         assert_eq!(self.dim.count(), dim.count());
-        let mut self_view = self.view();
         let strides = generate_strides(&dim);
-        self_view.dim = dim;
-        self_view.strides = strides;
+        let self_view = TensorBase {
+            id: self.id,
+            data: ViewData {
+                marker: std::marker::PhantomData::<&A::Item>,
+            },
+            ptr: self.ptr,
+            dim: dim,
+            strides,
+            is_leaf: self.is_leaf,
+            requires_grad: false,
+            backward_ops: RefCell::new(None),
+        };
         self_view
     }
 

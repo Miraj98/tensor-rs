@@ -1,9 +1,8 @@
 use crate::{
     dim::{Ix2, Ix3, Ix4},
     impl_constructors::TensorConstructors,
-    impl_reduce_ops::ReduceOps,
     utils::{generate_strides, merge_backward_ops},
-    DataBuffer, DataElement, Tensor, TensorBase,
+    DataBuffer, Tensor, TensorBase,
 };
 use matrixmultiply::sgemm;
 
@@ -48,85 +47,25 @@ where
     type Output = Tensor<Ix3, f32>;
 
     fn conv2d(&self, kernels: &TensorBase<Ix4, B>, strides: (usize, usize)) -> Self::Output {
-        assert!(self.ndim() >= 2);
-        assert_eq!(self.dim[0], kernels.dim[1]);
-        assert!(self.dim[1] > kernels.dim[2]);
-        assert!(self.dim[2] > kernels.dim[3]);
-
-        let cin = self.dim[0];
-        let cout = kernels.dim[0];
-        let x = self.ptr.as_ptr();
-        let xs = (self.strides[0] as isize, self.strides[1] as isize, self.strides[2] as isize);
-        let k = kernels.ptr.as_ptr();
-        let ks =  (kernels.strides[0] as isize, kernels.strides[1] as isize, kernels.strides[2] as isize, kernels.strides[3] as isize);
-        let sx = strides.0;
-        let sy = strides.1;
-        let h = self.dim[1];
-        let w = self.dim[2];
-        let kh = kernels.dim[2];
-        let kw = kernels.dim[3];
-
-        let h_out = (h - kh) / sy + 1;
-        let w_out = (w - kw) / sx + 1;
-        let mut out_t: Tensor<_, f32> = Tensor::zeros([cout, h_out, w_out]);
-        let out = unsafe { out_t.ptr.as_mut() };
-
+        let mut backops = merge_backward_ops(self, kernels);
+        let (cin, cout, x, xs, k, ks, out, sx, sy, h, w, kh, kw, out_t) =
+            conv2d_params(self, kernels, strides);
         conv2d(cin, cout, x, xs, k, ks, out, sx, sy, h, w, kh, kw);
 
-        // let (sx, sy) = strides;
-        // let mut out_dim = [kernels.dim[0], 0, 0];
-        // out_dim[1] = (self.dim[1] - kernels.dim[2]) / sy + 1;
-        // out_dim[2] = (self.dim[2] - kernels.dim[3]) / sx + 1;
-        // let h = out_dim[1];
-        // let w = out_dim[2];
-        // let out: Tensor<_, E> = Tensor::zeros(out_dim);
-        // let out_ptr = out.ptr.as_ptr();
-
-        // for i in 0..kernels.dim[0] {
-        //     for x in 0..w {
-        //         for y in 0..h {
-        //             let slc = self.slice_2d(
-        //                 (x * sx)..(kernels.dim[3] + x * sx),
-        //                 (y * sy)..(kernels.dim[2] + y * sy),
-        //             );
-        //             let o = (slc * kernels.outer_dim(i)).sum();
-        //             unsafe { *out_ptr.add(i * x * y + y * w + x) = o.ptr.as_ptr().read() };
-        //         }
-        //     }
-        // }
-
-        // let mut backops = merge_backward_ops(self, kernels);
-        // if backops.is_some() {
-        //     let self_clone = self.clone();
-        //     let mut kernels_clone = kernels.clone();
-        //     let out_clone = out.clone();
-        //     // TODO: Optimize the backward pass
-        //     backops.as_mut().unwrap().add_backward_op(move |grad| {
-        //         let (lhs_grad, rhs_grad, out_grad): (
-        //             &mut TensorBase<_, _>,
-        //             &mut TensorBase<_, _>,
-        //             &Tensor<[usize; 3], _>,
-        //         ) = grad.mmr_grad(
-        //             (self_clone.id, self_clone.dim()),
-        //             (kernels_clone.id, kernels_clone.dim()),
-        //             out_clone.id,
-        //         );
-        //         let px = kernels_clone.dim[3] - 1;
-        //         let py = kernels_clone.dim[2] - 1;
-        //         let mut padded = Tensor::<_, E>::zeros([
-        //             out_grad.dim[0],
-        //             2 * py + self_clone.dim[1],
-        //             2 * px + self_clone.dim[2],
-        //         ]);
-        //         padded
-        //             .slice_mut_2d(px..px + out_grad.dim[1], py..py + out_grad.dim[2])
-        //             .assign(out_grad);
-        //         kernels_clone.invert_axis(2);
-        //         kernels_clone.invert_axis(3);
-        //         *lhs_grad += padded.conv2d(&kernels_clone, (1, 1));
-        //         // *rhs_grad +=
-        //     })
-        // }
+        if backops.is_some() {
+            let x_clone = self.clone();
+            let kernels_clone = kernels.clone();
+            let out_clone = out_t.clone();
+            backops.as_mut().unwrap().add_backward_op(move |grad| {
+                let (x_grad, k_grad, out_grad): (_, _, &Tensor<Ix3, f32>) = grad.mmr_grad(
+                    (x_clone.id, x_clone.dim()),
+                    (kernels_clone.id, kernels_clone.dim()),
+                    out_clone.id,
+                );
+                let out_grad_view = out_grad.reshape([1, out_grad.dim[0], out_grad.dim[1], out_grad.dim[2]]);
+                *k_grad += x_clone.conv2d(&out_grad_view, (1,1));
+            })
+        }
 
         out_t
     }
@@ -178,6 +117,64 @@ where
     }
 }
 
+pub fn conv2d_params<A, B>(
+    lhs: &TensorBase<Ix3, A>,
+    kernels: &TensorBase<Ix4, B>,
+    strides: (usize, usize),
+) -> (
+    usize,
+    usize,
+    *const f32,
+    (isize, isize, isize),
+    *const f32,
+    (isize, isize, isize, isize),
+    *mut f32,
+    usize,
+    usize,
+    usize,
+    usize,
+    usize,
+    usize,
+    Tensor<Ix3, f32>,
+)
+where
+    A: DataBuffer<Item = f32>,
+    B: DataBuffer<Item = f32>,
+{
+    assert!(lhs.ndim() >= 2);
+    assert_eq!(lhs.dim[0], kernels.dim[1]);
+    assert!(lhs.dim[1] > kernels.dim[2]);
+    assert!(lhs.dim[2] > kernels.dim[3]);
+
+    let cin = lhs.dim[0];
+    let cout = kernels.dim[0];
+    let x = lhs.ptr.as_ptr();
+    let xs = (
+        lhs.strides[0] as isize,
+        lhs.strides[1] as isize,
+        lhs.strides[2] as isize,
+    );
+    let k = kernels.ptr.as_ptr();
+    let ks = (
+        kernels.strides[0] as isize,
+        kernels.strides[1] as isize,
+        kernels.strides[2] as isize,
+        kernels.strides[3] as isize,
+    );
+    let sx = strides.0;
+    let sy = strides.1;
+    let h = lhs.dim[1];
+    let w = lhs.dim[2];
+    let kh = kernels.dim[2];
+    let kw = kernels.dim[3];
+
+    let h_out = (h - kh) / sy + 1;
+    let w_out = (w - kw) / sx + 1;
+    let mut out_t: Tensor<_, f32> = Tensor::zeros([cout, h_out, w_out]);
+    let out = unsafe { out_t.ptr.as_mut() };
+    (cin, cout, x, xs, k, ks, out, sx, sy, h, w, kh, kw, out_t)
+}
+
 pub fn conv2d(
     cin: usize,
     cout: usize,
@@ -195,9 +192,6 @@ pub fn conv2d(
 ) {
     let h_out = (h - kh) / sy + 1;
     let w_out = (w - kw) / sx + 1;
-
-    // out_dim = [cout, h_out, w_out]
-
     for _c in 0..cout {
         for _h in 0..h_out {
             for _w in 0..w_out {
@@ -205,38 +199,24 @@ pub fn conv2d(
                 for _cin in 0..cin {
                     for _kh in 0..kh {
                         for _kw in 0..kw {
-                            let k_idx = _c as isize * ks.0 + _cin as isize * ks.1 + _kh as isize * ks.2 + _kw as isize * ks.3;
-                            let x_idx = _cin as isize * xs.0 + (_h * sy + _kh) as isize * xs.1 + (_w * sx + _kw) as isize *xs.2;
+                            let k_idx = _c as isize * ks.0
+                                + _cin as isize * ks.1
+                                + _kh as isize * ks.2
+                                + _kw as isize * ks.3;
+                            let x_idx = _cin as isize * xs.0
+                                + (_h * sy + _kh) as isize * xs.1
+                                + (_w * sx + _kw) as isize * xs.2;
                             let k_elem = unsafe { *k.offset(k_idx) };
                             let x_elem = unsafe { *x.offset(x_idx) };
                             acc += k_elem * x_elem;
                         }
                     }
                 }
-                let out_idx = (_c * h_out * w_out) + (_h * w_out) + _w; 
+                let out_idx = (_c * h_out * w_out) + (_h * w_out) + _w;
                 unsafe { out.add(out_idx).write(acc) };
             }
         }
     }
-
-    // for c in 0..cout {
-    //     for i in 0..cin {
-    //         for j in 0..h_out {
-    //             for k in 0..w_out {
-    //                 let mut sum = 0.;
-    //                 for p in 0..kh {
-    //                     for q in 0..kw {
-    //                         let x_idx = k * xs.0 * xs.1 + (i * sy + p) * xs.1 + j * sx + q;
-    //                         let k_idx = c * ks.0 * ks.1 * ks.2 + k * ks.1 * ks.2 + p * ks.2 + q;
-    //                         sum += unsafe { *x.add(x_idx) } * unsafe { *k.add(k_idx) };
-    //                     }
-    //                 }
-    //             }
-    //             let out_idx = c * h * w + i * w + j;
-    //             unsafe { *out.add(out_idx) = sum };
-    //         }
-    //     }
-    // }
 }
 
 #[cfg(test)]

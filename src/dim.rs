@@ -24,6 +24,14 @@ where
     type Output: Dimension;
 }
 
+pub trait ShapePattern
+{
+    type IOutput;
+    type UOutput;
+    fn ipattern(&self) -> Self::IOutput;
+    fn upattern(&self) -> Self::UOutput;
+}
+
 pub trait Dimension:
     Clone + Eq + Index<usize, Output = Ix> + IndexMut<usize, Output = Ix> + Debug
 {
@@ -99,6 +107,117 @@ macro_rules! impl_dimension {
         }
     };
 }
+
+impl ShapePattern for [Ix; 0] {
+    type IOutput = ();
+    type UOutput = ();
+
+    fn ipattern(&self) -> Self::IOutput {
+        ()
+    }
+
+    fn upattern(&self) -> Self::UOutput {
+        ()
+    }
+}
+
+impl ShapePattern for [Ix; 1] {
+    type IOutput = isize;
+    type UOutput = Ix;
+
+    fn ipattern(&self) -> Self::IOutput {
+        self[0] as isize
+    }
+
+    fn upattern(&self) -> Self::UOutput {
+        self[0]
+    }
+}
+
+impl ShapePattern for [Ix; 2] {
+    type IOutput = (isize, isize);
+    type UOutput = (Ix, Ix);
+
+    fn ipattern(&self) -> Self::IOutput {
+        (self[0] as isize, self[1] as isize)
+    }
+
+    fn upattern(&self) -> Self::UOutput {
+        (self[0], self[1])
+    }
+}
+
+impl ShapePattern for [Ix; 3] {
+    type IOutput = (isize, isize, isize);
+    type UOutput = (Ix, Ix, Ix);
+
+    fn ipattern(&self) -> Self::IOutput {
+        (self[0] as isize, self[1] as isize, self[2] as isize)
+    }
+
+    fn upattern(&self) -> Self::UOutput {
+        (self[0], self[1], self[2])
+    }
+}
+
+impl ShapePattern for [Ix; 4] {
+    type IOutput = (isize, isize, isize, isize);
+    type UOutput = (Ix, Ix, Ix, Ix);
+
+    fn ipattern(&self) -> Self::IOutput {
+        (
+            self[0] as isize,
+            self[1] as isize,
+            self[2] as isize,
+            self[3] as isize,
+        )
+    }
+
+    fn upattern(&self) -> Self::UOutput {
+        (self[0], self[1], self[2], self[3])
+    }
+}
+
+impl ShapePattern for [Ix; 5] {
+    type IOutput = (isize, isize, isize, isize, isize);
+    type UOutput = (Ix, Ix, Ix, Ix, Ix);
+
+    fn ipattern(&self) -> Self::IOutput {
+        (
+            self[0] as isize,
+            self[1] as isize,
+            self[2] as isize,
+            self[3] as isize,
+            self[4] as isize,
+        )
+    }
+
+    fn upattern(&self) -> Self::UOutput {
+        (self[0], self[1], self[2], self[3], self[4])
+    }
+}
+
+impl ShapePattern for [Ix; 6] {
+    type IOutput = (isize, isize, isize, isize, isize, isize);
+    type UOutput = (Ix, Ix, Ix, Ix, Ix, Ix);
+
+    fn ipattern(&self) -> Self::IOutput {
+        (
+            self[0] as isize,
+            self[1] as isize,
+            self[2] as isize,
+            self[3] as isize,
+            self[4] as isize,
+            self[5] as isize,
+        )
+    }
+
+    fn upattern(&self) -> Self::UOutput {
+        (self[0], self[1], self[2], self[3], self[4], self[5])
+    }
+}
+
+
 
 impl_dimension!(Ix0, Ix1, Ix0, 0);
 impl_dimension!(Ix1, Ix2, Ix0, 1);

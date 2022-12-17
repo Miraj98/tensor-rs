@@ -1,5 +1,5 @@
 use crate::{
-    dim::{Ix2, Ix3, Ix4},
+    dim::{Ix2, Ix3, Ix4, ShapePattern},
     impl_constructors::TensorConstructors,
     utils::{generate_strides, merge_backward_ops},
     DataBuffer, Tensor, TensorBase,
@@ -42,7 +42,6 @@ impl<A, B> Conv2d<TensorBase<Ix4, B>> for TensorBase<Ix3, A>
 where
     A: DataBuffer<Item = f32> + 'static,
     B: DataBuffer<Item = f32> + 'static,
-    // E: DataElement + 'static,
 {
     type Output = Tensor<Ix3, f32>;
 
@@ -50,20 +49,44 @@ where
         let mut backops = merge_backward_ops(self, kernels);
         let (cin, cout, x, xs, k, ks, out, sx, sy, h, w, kh, kw, out_t) =
             conv2d_params(self, kernels, strides);
-        conv2d(cin, cout, x, xs, k, ks, out, sx, sy, h, w, kh, kw);
+        unsafe {
+            conv2d(cin, cout, x, xs, k, ks, out, sx, sy, h, w, kh, kw);
+        }
 
         if backops.is_some() {
             let x_clone = self.clone();
             let kernels_clone = kernels.clone();
             let out_clone = out_t.clone();
             backops.as_mut().unwrap().add_backward_op(move |grad| {
-                let (x_grad, k_grad, out_grad): (_, _, &Tensor<Ix3, f32>) = grad.mmr_grad(
+                let (x_g, k_g, out_g): (_, _, &Tensor<Ix3, f32>) = grad.mmr_grad(
                     (x_clone.id, x_clone.dim()),
                     (kernels_clone.id, kernels_clone.dim()),
                     out_clone.id,
                 );
-                let out_grad_view = out_grad.reshape([1, out_grad.dim[0], out_grad.dim[1], out_grad.dim[2]]);
-                *k_grad += x_clone.conv2d(&out_grad_view, (1,1));
+
+                let kg_local: Tensor<[usize; 4], f32> = Tensor::zeros(kernels_clone.dim());
+                let x_ptr = x_clone.ptr.as_ptr();
+                let out_g_ptr = out_g.ptr.as_ptr();
+                let xs = x_clone.strides.ipattern();
+                let ks = out_g.strides.ipattern();
+
+                // Calculate kg_local(kernel gradients)
+                unsafe { 
+                    let h = x_clone.dim[1];
+                    let w = x_clone.dim[2];
+                    let kh = out_g.dim[1];
+                    let kw = out_g.dim[2];
+
+                    for _cout in 0..out_g.dim[0] as isize {
+                        let k = out_g_ptr.offset(_cout * ks.0);
+                        let out = kg_local.ptr.as_ptr();
+                        for _cin in 0..x_clone.dim[0] as isize {
+                            let x = x_ptr.offset(_cin * xs.0);
+                            conv2d(1, 1, x, xs, k, (0, ks.0, ks.1, ks.2), out, sx, sy, h, w, kh, kw);
+                        }
+                    }
+                }
+                *k_g += kg_local;
             })
         }
 
@@ -143,8 +166,8 @@ where
 {
     assert!(lhs.ndim() >= 2);
     assert_eq!(lhs.dim[0], kernels.dim[1]);
-    assert!(lhs.dim[1] > kernels.dim[2]);
-    assert!(lhs.dim[2] > kernels.dim[3]);
+    assert!(lhs.dim[1] >= kernels.dim[2]);
+    assert!(lhs.dim[2] >= kernels.dim[3]);
 
     let cin = lhs.dim[0];
     let cout = kernels.dim[0];
@@ -175,7 +198,7 @@ where
     (cin, cout, x, xs, k, ks, out, sx, sy, h, w, kh, kw, out_t)
 }
 
-pub fn conv2d(
+pub unsafe fn conv2d(
     cin: usize,
     cout: usize,
     x: *const f32,
@@ -224,6 +247,7 @@ mod tests {
     use super::{Conv2d, Matmul};
     use crate::{
         impl_constructors::{tensor, TensorConstructors},
+        impl_processing_ops::{conv2d, conv2d_params},
         Tensor,
     };
 
@@ -242,7 +266,7 @@ mod tests {
     }
 
     #[test]
-    fn conv() {
+    fn conv_normal() {
         let a = tensor([
             [[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]],
             [[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]],
@@ -256,5 +280,24 @@ mod tests {
         let c = a.conv2d(&b, (1, 1));
 
         assert_eq!(c, tensor([[[37., 47.], [67., 77.]]]) * 3. as f32);
+    }
+
+    #[test]
+    fn conv_partial() {
+        let x_t = tensor([
+            [[1., 2.], [3., 4.]],
+            [[5., 6.], [7., 8.]],
+            [[9., 10.], [11., 12.]],
+        ]);
+        let k_t: Tensor<_, f32> = Tensor::ones(x_t.dim());
+        let k_t4 = k_t.reshape([1, k_t.dim[0], k_t.dim[1], k_t.dim[2]]);
+
+        let (_, _, x, xs, k, ks, out, sx, sy, h, w, kh, kw, out_t) =
+            conv2d_params(&x_t, &k_t4, (1, 1));
+        unsafe {
+            conv2d(1, 1, x, xs, k, ks, out, sx, sy, h, w, kh, kw);
+        }
+
+        assert_eq!(out_t, tensor([[[10.]]]));
     }
 }

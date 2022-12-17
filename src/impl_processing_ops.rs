@@ -90,6 +90,29 @@ where
 
                 // Calculate xg_local(input gradients)
                 unsafe {
+                    let kh = out_g.dim[out_g.dim.len() - 2];
+                    let kw = out_g.dim[out_g.dim.len() - 1];
+                    let h = kernels_clone.dim[kernels_clone.dim.len() - 2] + 2*(kh - 1);
+                    let w = kernels_clone.dim[kernels_clone.dim.len() - 1] + 2*(kw - 1);
+                    let mut x_padded: Tensor<_, f32> = Tensor::zeros([kernels_clone.dim[0], kernels_clone.dim[1], h, w]);
+                    x_padded
+                        .slice_mut_2d(kw - 1..kw - 1 + kernels_clone.dim[kernels_clone.dim.len() - 1], kh - 1..kh - 1 + kernels_clone.dim[kernels_clone.dim.len() - 2])
+                        .assign(&kernels_clone);
+
+                    for _cout in 0..kernels_clone.dim[0] {
+                        let kernel_view_3d = kernels_clone.outer_dim(_cout);
+                        let out_g_view_2d = out_g.outer_dim(_cout);
+
+                        for _cin in 0..xg_local.dim[0] {
+                            let kernel_view_2d = kernel_view_3d.outer_dim(_cin);
+                            let x = kernel_view_2d.ptr.as_ptr();
+                            let xs = kernel_view_3d.strides.ipattern();
+                            let k = out_g_view_2d.ptr.as_ptr();
+                            let ks = out_g.strides.ipattern();
+                            let out = xg_local.ptr.as_ptr().add(_cin * xg_local.strides[0]);
+                            conv2d(1, 1, x, xs, k, (0, ks.0, ks.1, ks.2), out, sx, sy, h, w, kh, kw)
+                        }
+                    }
                 }
 
                 *k_g += kg_local;
@@ -238,7 +261,7 @@ pub unsafe fn conv2d(
                     }
                 }
                 let out_idx = (_c * (h_out as isize) * (w_out as isize)) + (_h * (w_out as isize)) + _w;
-                unsafe { out.offset(out_idx).write(acc) };
+                unsafe { out.offset(out_idx).write(out.offset(out_idx).read() + acc) };
             }
         }
     }
@@ -352,6 +375,8 @@ mod tests {
         let c_sum = c.sum();
         let gradients = c_sum.backward();
         let b_g = gradients.grad(&b);
+        let a_g = gradients.grad(&a);
+        println!("{a_g:?}");
         assert_eq!(b_g, &tensor([[
             [
                 [4., 4.],

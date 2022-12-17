@@ -65,6 +65,7 @@ where
                 );
 
                 let kg_local: Tensor<[usize; 4], f32> = Tensor::zeros(kernels_clone.dim());
+                let xg_local: Tensor<[usize; 3], f32> = Tensor::zeros(x_clone.dim());
                 let x_ptr = x_clone.ptr.as_ptr();
                 let out_g_ptr = out_g.ptr.as_ptr();
                 let xs = x_clone.strides.ipattern();
@@ -79,17 +80,23 @@ where
 
                     for _cout in 0..out_g.dim[0] as isize {
                         let k = out_g_ptr.offset(_cout * ks.0);
-                        let out = kg_local.ptr.as_ptr();
+                        let out = kg_local.ptr.as_ptr().offset(_cout * kg_local.strides[0] as isize);
                         for _cin in 0..x_clone.dim[0] as isize {
                             let x = x_ptr.offset(_cin * xs.0);
-                            conv2d(1, 1, x, xs, k, (0, ks.0, ks.1, ks.2), out, sx, sy, h, w, kh, kw);
+                            conv2d(1, 1, x, xs, k, (0, ks.0, ks.1, ks.2), out.offset(_cin * kg_local.strides[1] as isize), sx, sy, h, w, kh, kw);
                         }
                     }
                 }
+
+                // Calculate xg_local(input gradients)
+                unsafe {
+                }
+
                 *k_g += kg_local;
+                *x_g += xg_local;
             })
         }
-
+        out_t.put_backward_ops(backops);
         out_t
     }
 }
@@ -215,28 +222,23 @@ pub unsafe fn conv2d(
 ) {
     let h_out = (h - kh) / sy + 1;
     let w_out = (w - kw) / sx + 1;
-    for _c in 0..cout {
-        for _h in 0..h_out {
-            for _w in 0..w_out {
+    for _c in 0..cout as isize {
+        for _h in 0..h_out as isize {
+            for _w in 0..w_out as isize {
                 let mut acc: f32 = 0.;
-                for _cin in 0..cin {
-                    for _kh in 0..kh {
-                        for _kw in 0..kw {
-                            let k_idx = _c as isize * ks.0
-                                + _cin as isize * ks.1
-                                + _kh as isize * ks.2
-                                + _kw as isize * ks.3;
-                            let x_idx = _cin as isize * xs.0
-                                + (_h * sy + _kh) as isize * xs.1
-                                + (_w * sx + _kw) as isize * xs.2;
+                for _cin in 0..cin as isize {
+                    for _kh in 0..kh as isize {
+                        for _kw in 0..kw as isize {
+                            let k_idx = _c * ks.0 + _cin * ks.1 + _kh * ks.2 + _kw * ks.3;
+                            let x_idx = _cin * xs.0 + (_h * (sy as isize) + _kh) * xs.1 + (_w * (sx as isize) + _kw) * xs.2;
                             let k_elem = unsafe { *k.offset(k_idx) };
                             let x_elem = unsafe { *x.offset(x_idx) };
                             acc += k_elem * x_elem;
                         }
                     }
                 }
-                let out_idx = (_c * h_out * w_out) + (_h * w_out) + _w;
-                unsafe { out.add(out_idx).write(acc) };
+                let out_idx = (_c * (h_out as isize) * (w_out as isize)) + (_h * (w_out as isize)) + _w;
+                unsafe { out.offset(out_idx).write(acc) };
             }
         }
     }
@@ -248,6 +250,7 @@ mod tests {
     use crate::{
         impl_constructors::{tensor, TensorConstructors},
         impl_processing_ops::{conv2d, conv2d_params},
+        impl_reduce_ops::ReduceOps,
         Tensor,
     };
 
@@ -299,5 +302,82 @@ mod tests {
         }
 
         assert_eq!(out_t, tensor([[[10.]]]));
+    }
+
+    #[test]
+    fn conv_backward() {
+        let a = tensor([
+            [
+                [1., 1., 1.],
+                [1., 1., 1.],
+                [1., 1., 1.],
+            ],[
+                [2., 2., 2.],
+                [2., 2., 2.],
+                [2., 2., 2.],
+            ],[
+                [3., 3., 3.],
+                [3., 3., 3.],
+                [3., 3., 3.],
+            ],
+        ]).requires_grad(true);
+        let b = tensor([[
+            [
+                [4., 4.],
+                [4., 4.]
+            ],
+            [
+                [5., 5.],
+                [5., 5.]
+            ],
+            [
+                [6., 6.],
+                [6., 6.]
+            ],
+        ], [
+            [
+                [6., 6.],
+                [6., 6.]
+            ],
+            [
+                [7., 7.],
+                [7., 7.]
+            ],
+            [
+                [8., 8.],
+                [8., 8.]
+            ],
+        ]]).requires_grad(true);
+        let c = a.conv2d(&b, (1, 1));
+        let c_sum = c.sum();
+        let gradients = c_sum.backward();
+        let b_g = gradients.grad(&b);
+        assert_eq!(b_g, &tensor([[
+            [
+                [4., 4.],
+                [4., 4.]
+            ],
+            [
+                [8., 8.],
+                [8., 8.]
+            ],
+            [
+                [12., 12.],
+                [12., 12.]
+            ],
+        ], [
+            [
+                [4., 4.],
+                [4., 4.]
+            ],
+            [
+                [8., 8.],
+                [8., 8.]
+            ],
+            [
+                [12., 12.],
+                [12., 12.]
+            ],
+        ]]));
     }
 }

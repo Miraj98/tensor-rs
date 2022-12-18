@@ -85,12 +85,12 @@ where
     }
 }
 
-impl<B/*, E*/> Layer<&TensorBase<Ix3, B>> for Conv2d<f32 /*E */>
+impl<B, E> Layer<&TensorBase<Ix3, B>> for Conv2d<E>
 where
-    B: DataBuffer<Item =  f32/*E*/> + 'static,
-    // E: DataElement + 'static
+    B: DataBuffer<Item = E> + 'static,
+    E: DataElement + 'static
 {
-    type Output = Tensor<Ix3, f32/*E*/>;
+    type Output = Tensor<Ix3, E>;
     fn forward(&self, input: &TensorBase<Ix3, B>) -> Self::Output {
        input.conv2d(&self.w, (1, 1)) 
     }

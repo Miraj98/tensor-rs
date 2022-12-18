@@ -2,7 +2,7 @@ use crate::{
     dim::{Ix2, Ix3, Ix4, ShapePattern},
     impl_constructors::TensorConstructors,
     utils::{generate_strides, merge_backward_ops},
-    DataBuffer, Tensor, TensorBase,
+    DataBuffer, Tensor, TensorBase, DataElement,
 };
 use matrixmultiply::sgemm;
 
@@ -38,12 +38,13 @@ where
     }
 }
 
-impl<A, B> Conv2d<TensorBase<Ix4, B>> for TensorBase<Ix3, A>
+impl<A, B, E> Conv2d<TensorBase<Ix4, B>> for TensorBase<Ix3, A>
 where
-    A: DataBuffer<Item = f32> + 'static,
-    B: DataBuffer<Item = f32> + 'static,
+    E: DataElement + 'static,
+    A: DataBuffer<Item = E> + 'static,
+    B: DataBuffer<Item = E> + 'static,
 {
-    type Output = Tensor<Ix3, f32>;
+    type Output = Tensor<Ix3, E>;
 
     fn conv2d(&self, kernels: &TensorBase<Ix4, B>, strides: (usize, usize)) -> Self::Output {
         let mut backops = merge_backward_ops(self, kernels);
@@ -58,14 +59,14 @@ where
             let kernels_clone = kernels.clone();
             let out_clone = out_t.clone();
             backops.as_mut().unwrap().add_backward_op(move |grad| {
-                let (x_g, k_g, out_g): (_, _, &Tensor<Ix3, f32>) = grad.mmr_grad(
+                let (x_g, k_g, out_g): (_, _, &Tensor<Ix3, E>) = grad.mmr_grad(
                     (x_clone.id, x_clone.dim()),
                     (kernels_clone.id, kernels_clone.dim()),
                     out_clone.id,
                 );
 
-                let kg_local: Tensor<[usize; 4], f32> = Tensor::zeros(kernels_clone.dim());
-                let xg_local: Tensor<[usize; 3], f32> = Tensor::zeros(x_clone.dim());
+                let kg_local: Tensor<[usize; 4], E> = Tensor::zeros(kernels_clone.dim());
+                let xg_local: Tensor<[usize; 3], E> = Tensor::zeros(x_clone.dim());
                 let x_ptr = x_clone.ptr.as_ptr();
                 let out_g_ptr = out_g.ptr.as_ptr();
                 let xs = x_clone.strides.ipattern();
@@ -99,7 +100,7 @@ where
                     let h = out_g.dim[out_g.dim.len() - 2] + 2 * (kh - 1);
                     let w = out_g.dim[out_g.dim.len() - 1] + 2 * (kw - 1);
 
-                    let mut x_padded: Tensor<_, f32> = Tensor::zeros([out_g.dim[0], h, w]);
+                    let mut x_padded: Tensor<_, E> = Tensor::zeros([out_g.dim[0], h, w]);
                     x_padded
                         .slice_mut_2d(
                             kw - 1..kw - 1 + out_g.dim[out_g.dim.len() - 1],
@@ -178,29 +179,30 @@ where
     }
 }
 
-pub fn conv2d_params<A, B>(
+pub fn conv2d_params<A, B, E>(
     lhs: &TensorBase<Ix3, A>,
     kernels: &TensorBase<Ix4, B>,
     strides: (usize, usize),
 ) -> (
     usize,
     usize,
-    *const f32,
+    *const E,
     (isize, isize, isize),
-    *const f32,
+    *const E,
     (isize, isize, isize, isize),
-    *mut f32,
+    *mut E,
     usize,
     usize,
     usize,
     usize,
     usize,
     usize,
-    Tensor<Ix3, f32>,
+    Tensor<Ix3, E>,
 )
 where
-    A: DataBuffer<Item = f32>,
-    B: DataBuffer<Item = f32>,
+    E: DataElement,
+    A: DataBuffer<Item = E>,
+    B: DataBuffer<Item = E>,
 {
     assert!(lhs.ndim() >= 2);
     assert_eq!(lhs.dim[0], kernels.dim[1]);
@@ -231,32 +233,32 @@ where
 
     let h_out = (h - kh) / sy + 1;
     let w_out = (w - kw) / sx + 1;
-    let mut out_t: Tensor<_, f32> = Tensor::zeros([cout, h_out, w_out]);
+    let mut out_t: Tensor<_, E> = Tensor::zeros([cout, h_out, w_out]);
     let out = unsafe { out_t.ptr.as_mut() };
     (cin, cout, x, xs, k, ks, out, sx, sy, h, w, kh, kw, out_t)
 }
 
-pub unsafe fn conv2d(
+pub unsafe fn conv2d<E>(
     cin: usize,
     cout: usize,
-    x: *const f32,
+    x: *const E,
     xs: (isize, isize, isize),
-    k: *const f32,
+    k: *const E,
     ks: (isize, isize, isize, isize),
-    out: *mut f32,
+    out: *mut E,
     sx: usize,
     sy: usize,
     h: usize,
     w: usize,
     kh: usize,
     kw: usize,
-) {
+) where E: DataElement {
     let h_out = (h - kh) / sy + 1;
     let w_out = (w - kw) / sx + 1;
     for _c in 0..cout as isize {
         for _h in 0..h_out as isize {
             for _w in 0..w_out as isize {
-                let mut acc: f32 = 0.;
+                let mut acc: E = E::zero();
                 for _cin in 0..cin as isize {
                     for _kh in 0..kh as isize {
                         for _kw in 0..kw as isize {
@@ -338,7 +340,7 @@ mod tests {
 
     #[test]
     fn conv_backward() {
-        let a = tensor([
+        let a: Tensor<_, f32> = tensor([
             [[1., 1., 1.], [1., 1., 1.], [1., 1., 1.]],
             [[2., 2., 2.], [2., 2., 2.], [2., 2., 2.]],
             [[3., 3., 3.], [3., 3., 3.], [3., 3., 3.]],

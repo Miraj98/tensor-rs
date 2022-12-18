@@ -144,6 +144,7 @@ pub trait DataElement:
     fn sigmoid(&self) -> Self;
     fn relu(&self) -> Self;
     fn from_usize(x: usize) -> Self;
+    fn from_u8(x: u8) -> Self;
     fn randn() -> Self;
 }
 
@@ -214,6 +215,9 @@ impl DataElement for f32 {
     fn from_usize(x: usize) -> Self {
         x as f32
     }
+    fn from_u8(x: u8) -> Self {
+        x as f32
+    }
     fn randn() -> Self {
         thread_rng().sample(StandardNormal)
     }
@@ -244,6 +248,9 @@ impl DataElement for f64 {
         }
     }
     fn from_usize(x: usize) -> Self {
+        x as f64
+    }
+    fn from_u8(x: u8) -> Self {
         x as f64
     }
     fn randn() -> Self {

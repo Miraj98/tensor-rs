@@ -1,11 +1,10 @@
 use std::{cell::RefCell, ops::Range, ptr::NonNull};
-
 use crate::{
     dim::{Dimension, Ix0},
     gradient::{BackwardOps, GradientMap},
     impl_constructors::TensorConstructors,
     unique_id::unique_id,
-    utils::{generate_strides, nd_index, unlimited_transmute, vec_id},
+    utils::{generate_strides, nd_index, unlimited_transmute, vec_ptr_offset},
     DataBuffer, DataElement, OwnedData, Tensor, TensorBase, TensorView, TensorViewMut, UniqueId,
     ViewData,
 };
@@ -217,14 +216,14 @@ where
             let o_ptr = other.ptr.as_ptr();
             for i in 0..other.len() {
                 let assign_at = unsafe {
-                    ptr.add(vec_id(
+                    ptr.offset(vec_ptr_offset(
                         nd_index(i, &default_strides),
                         &self.dim,
                         &self.strides,
                     ))
                 };
                 let assign = unsafe {
-                    o_ptr.add(vec_id(
+                    o_ptr.offset(vec_ptr_offset(
                         nd_index(i, &default_strides),
                         &other.dim,
                         &other.strides,
@@ -467,5 +466,25 @@ mod tests {
         a.invert_axis(0);
         a.invert_axis(1);
         assert_eq!(a, tensor([[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]]));
+    }
+
+    #[test]
+    fn slice_2d() {
+        let ones: Tensor<_, f32> = Tensor::ones([2, 2, 2]);
+        let px = 1;
+        let py = 1;
+        let mut x_padded: Tensor<_, f32> = Tensor::zeros([2, 4, 4]);
+        x_padded.slice_mut_2d(px..px+2, py..py+2).assign(&ones);
+        assert_eq!(x_padded, tensor([[
+            [0., 0., 0., 0.],
+            [0., 1., 1., 0.],
+            [0., 1., 1., 0.],
+            [0., 0., 0., 0.],
+        ], [
+            [0., 0., 0., 0.],
+            [0., 1., 1., 0.],
+            [0., 1., 1., 0.],
+            [0., 0., 0., 0.],
+        ]]))
     }
 }

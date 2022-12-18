@@ -1,12 +1,7 @@
-use crate::{
-    prelude::{BackwardOps, Merge},
-    DataBuffer, DataElement,
-};
+use crate::{prelude::{BackwardOps, Merge}, DataBuffer, DataElement};
 use crate::{Tensor, TensorBase};
 use num_integer::Integer;
-
 use std::mem::{size_of, ManuallyDrop};
-
 use super::dim::Dimension;
 
 pub fn generate_strides<S>(dim: &S) -> S
@@ -46,14 +41,15 @@ where
     tnsr_idx(id, default_strides)
 }
 
-pub fn vec_id<S>(tnsr_idx: S, dims: &S, strides: &S) -> usize
+pub fn vec_ptr_offset<S>(tnsr_idx: S, dims: &S, strides: &S) -> isize
 where
     S: Dimension,
 {
     let id = tnsr_idx
         .get_iter()
         .enumerate()
-        .fold(0, |acc, (i, val)| acc + strides[i] * (val % dims[i])); // TODO: Might be problematic because strides is meant to be parsed as isize
+        .fold(0, |acc, (i, val)| acc + (strides[i] as isize * (val % dims[i]) as isize));
+
     id
 }
 
@@ -98,8 +94,8 @@ where
 
         for i in 0..broadcasted_count {
             let incoming_grad_idx = tnsr_idx(i, &broadcasted_strides);
-            let idx = vec_id(incoming_grad_idx.clone(), &padded, &padded_strides);
-            t[idx] = t[idx] + incoming_grad[incoming_grad_idx];
+            let idx = vec_ptr_offset(incoming_grad_idx.clone(), &padded, &padded_strides);
+            t[idx as usize] = t[idx as usize] + incoming_grad[incoming_grad_idx]; // TODO: This might be problematic because of cast to usize
         }
     }
 

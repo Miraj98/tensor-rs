@@ -1,6 +1,6 @@
 use crate::{
     dim::{DimMax, DimMaxOf, Dimension},
-    utils::{merge_backward_ops, nd_index, reduced_grad, vec_id},
+    utils::{merge_backward_ops, nd_index, reduced_grad, vec_ptr_offset},
     DataBuffer, DataElement, Tensor, TensorBase, TensorView,
 };
 use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Sub, SubAssign};
@@ -416,7 +416,7 @@ where
             let ptr = self.ptr.as_ptr();
             for i in 0..self.len() {
                 let assign_at = unsafe {
-                    ptr.add(vec_id(
+                    ptr.offset(vec_ptr_offset(
                         nd_index(i, &default_strides),
                         &self.dim,
                         &self.strides,

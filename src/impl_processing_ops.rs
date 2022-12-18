@@ -72,7 +72,7 @@ where
                 let ks = out_g.strides.ipattern();
 
                 // Calculate kg_local(kernel gradients)
-                unsafe { 
+                unsafe {
                     let h = x_clone.dim[1];
                     let w = x_clone.dim[2];
                     let kh = out_g.dim[1];
@@ -90,27 +90,35 @@ where
 
                 // Calculate xg_local(input gradients)
                 unsafe {
-                    let kh = out_g.dim[out_g.dim.len() - 2];
-                    let kw = out_g.dim[out_g.dim.len() - 1];
-                    let h = kernels_clone.dim[kernels_clone.dim.len() - 2] + 2*(kh - 1);
-                    let w = kernels_clone.dim[kernels_clone.dim.len() - 1] + 2*(kw - 1);
-                    let mut x_padded: Tensor<_, f32> = Tensor::zeros([kernels_clone.dim[0], kernels_clone.dim[1], h, w]);
-                    x_padded
-                        .slice_mut_2d(kw - 1..kw - 1 + kernels_clone.dim[kernels_clone.dim.len() - 1], kh - 1..kh - 1 + kernels_clone.dim[kernels_clone.dim.len() - 2])
-                        .assign(&kernels_clone);
+                    let mut kernel_clone_view = kernels_clone.view_mut();
+                    kernel_clone_view.invert_axis(3);
+                    kernel_clone_view.invert_axis(2);
 
-                    for _cout in 0..kernels_clone.dim[0] {
-                        let kernel_view_3d = kernels_clone.outer_dim(_cout);
-                        let out_g_view_2d = out_g.outer_dim(_cout);
+                    let kh = kernel_clone_view.dim[kernel_clone_view.dim.len() - 2];
+                    let kw = kernel_clone_view.dim[kernel_clone_view.dim.len() - 1];
+                    let h = out_g.dim[out_g.dim.len() - 2] + 2 * (kh - 1);
+                    let w = out_g.dim[out_g.dim.len() - 1] + 2 * (kw - 1);
+
+                    let mut x_padded: Tensor<_, f32> = Tensor::zeros([out_g.dim[0], h, w]);
+                    x_padded
+                        .slice_mut_2d(
+                            kw - 1..kw - 1 + out_g.dim[out_g.dim.len() - 1],
+                            kh - 1..kh - 1 + out_g.dim[out_g.dim.len() - 2],
+                        )
+                        .assign(&out_g);
+
+                    for _cout in 0..out_g.dim[0] {
+                        let out_g_view_2d = x_padded.outer_dim(_cout);
+                        let kernel_view_3d = kernel_clone_view.outer_dim(_cout);
 
                         for _cin in 0..xg_local.dim[0] {
                             let kernel_view_2d = kernel_view_3d.outer_dim(_cin);
-                            let x = kernel_view_2d.ptr.as_ptr();
-                            let xs = kernel_view_3d.strides.ipattern();
-                            let k = out_g_view_2d.ptr.as_ptr();
-                            let ks = out_g.strides.ipattern();
+                            let x = out_g_view_2d.ptr.as_ptr();
+                            let xs = x_padded.strides.ipattern();
+                            let k = kernel_view_2d.ptr.as_ptr();
+                            let ks = kernel_clone_view.strides.ipattern();
                             let out = xg_local.ptr.as_ptr().add(_cin * xg_local.strides[0]);
-                            conv2d(1, 1, x, xs, k, (0, ks.0, ks.1, ks.2), out, sx, sy, h, w, kh, kw)
+                            conv2d(1, 1, x, xs, k, ks, out, sx, sy, h, w, kh, kw)
                         }
                     }
                 }
@@ -260,7 +268,8 @@ pub unsafe fn conv2d(
                         }
                     }
                 }
-                let out_idx = (_c * (h_out as isize) * (w_out as isize)) + (_h * (w_out as isize)) + _w;
+                let out_idx =
+                    (_c * (h_out as isize) * (w_out as isize)) + (_h * (w_out as isize)) + _w;
                 unsafe { out.offset(out_idx).write(out.offset(out_idx).read() + acc) };
             }
         }
@@ -330,79 +339,76 @@ mod tests {
     #[test]
     fn conv_backward() {
         let a = tensor([
+            [[1., 1., 1.], [1., 1., 1.], [1., 1., 1.]],
+            [[2., 2., 2.], [2., 2., 2.], [2., 2., 2.]],
+            [[3., 3., 3.], [3., 3., 3.], [3., 3., 3.]],
+        ])
+        .requires_grad(true);
+        let b = tensor([
             [
-                [1., 1., 1.],
-                [1., 1., 1.],
-                [1., 1., 1.],
-            ],[
-                [2., 2., 2.],
-                [2., 2., 2.],
-                [2., 2., 2.],
-            ],[
-                [3., 3., 3.],
-                [3., 3., 3.],
-                [3., 3., 3.],
-            ],
-        ]).requires_grad(true);
-        let b = tensor([[
-            [
-                [4., 4.],
-                [4., 4.]
+                [[-0.0016, -0.2720], [0.1999, 0.1471]],
+                [[0.0292, -0.1199], [0.0998, -0.0965]],
+                [[-0.0213, 0.1884], [0.1070, 0.1714]],
             ],
             [
-                [5., 5.],
-                [5., 5.]
+                [[-0.1073, 0.2336], [-0.0188, -0.1207]],
+                [[-0.1664, -0.1194], [-0.2631, -0.0105]],
+                [[0.1826, 0.2350], [-0.0578, -0.2492]],
             ],
-            [
-                [6., 6.],
-                [6., 6.]
-            ],
-        ], [
-            [
-                [6., 6.],
-                [6., 6.]
-            ],
-            [
-                [7., 7.],
-                [7., 7.]
-            ],
-            [
-                [8., 8.],
-                [8., 8.]
-            ],
-        ]]).requires_grad(true);
+        ])
+        .requires_grad(true);
         let c = a.conv2d(&b, (1, 1));
         let c_sum = c.sum();
         let gradients = c_sum.backward();
         let b_g = gradients.grad(&b);
         let a_g = gradients.grad(&a);
-        println!("{a_g:?}");
-        assert_eq!(b_g, &tensor([[
-            [
-                [4., 4.],
-                [4., 4.]
-            ],
-            [
-                [8., 8.],
-                [8., 8.]
-            ],
-            [
-                [12., 12.],
-                [12., 12.]
-            ],
-        ], [
-            [
-                [4., 4.],
-                [4., 4.]
-            ],
-            [
-                [8., 8.],
-                [8., 8.]
-            ],
-            [
-                [12., 12.],
-                [12., 12.]
-            ],
-        ]]));
+        assert_eq!(
+            b_g,
+            &tensor([
+                [
+                    [[4., 4.], [4., 4.]],
+                    [[8., 8.], [8., 8.]],
+                    [[12., 12.], [12., 12.]],
+                ],
+                [
+                    [[4., 4.], [4., 4.]],
+                    [[8., 8.], [8., 8.]],
+                    [[12., 12.], [12., 12.]],
+                ]
+            ])
+        );
+
+        assert_eq!(
+            a_g,
+            &tensor([
+                -0.108899996,
+                -0.1473,
+                -0.03840001,
+                0.0722,
+                0.06019999,
+                -0.012000009,
+                0.1811,
+                0.2075,
+                0.0264,
+                -0.1372,
+                -0.3765,
+                -0.23930001,
+                -0.30049998,
+                -0.64680004,
+                -0.3463,
+                -0.16330001,
+                -0.27030003,
+                -0.107,
+                0.1613,
+                0.5847,
+                0.42339998,
+                0.21050002,
+                0.5561,
+                0.34559998,
+                0.049200002,
+                -0.028600007,
+                -0.077800006
+            ]).reshape([3, 3, 3])
+        )
     }
 }

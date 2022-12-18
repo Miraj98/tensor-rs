@@ -147,6 +147,12 @@ pub trait DataElement:
     fn randn() -> Self;
 }
 
+pub trait IntoFloat {
+    fn f32(self) -> f32;
+    fn f64(self) -> f64;
+}
+
+
 impl DataElement for f32 {
     type Dtype = f32;
     fn one() -> Self {

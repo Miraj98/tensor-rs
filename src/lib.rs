@@ -147,11 +147,45 @@ pub trait DataElement:
     fn randn() -> Self;
 }
 
-pub trait IntoFloat {
+pub trait IntoFloat32 {
     fn f32(self) -> f32;
+}
+pub trait IntoFloat64 {
     fn f64(self) -> f64;
 }
 
+macro_rules! impl_into_float32 {
+    ($type: ty) => {
+        impl IntoFloat32 for $type {
+            fn f32(self) -> f32 {
+                self.into()
+            }
+        }
+    };
+}
+
+macro_rules! impl_into_float64 {
+    ($type: ty) => {
+        impl IntoFloat64 for $type {
+            fn f64(self) -> f64 {
+                self.into()
+            }
+        }
+    };
+}
+
+impl_into_float32!(u8);
+impl_into_float32!(i8);
+impl_into_float32!(u16);
+impl_into_float32!(i16);
+
+impl_into_float64!(u8);
+impl_into_float64!(i8);
+impl_into_float64!(u16);
+impl_into_float64!(i16);
+impl_into_float64!(u32);
+impl_into_float64!(i32);
+impl_into_float64!(f32);
 
 impl DataElement for f32 {
     type Dtype = f32;

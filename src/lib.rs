@@ -9,6 +9,7 @@ pub mod impl_methods;
 pub mod impl_processing_ops;
 pub mod impl_reduce_ops;
 pub mod impl_traits;
+pub mod impl_iter;
 pub mod impl_unary_ops;
 
 pub mod neural_nets;

@@ -40,18 +40,17 @@ pub trait Dimension:
     type Smaller: Dimension;
     type Larger: Dimension;
 
-    fn ndim(&self) -> usize;
+    fn into_dimensionality<D2>(&self) -> D2 where D2: Dimension;
+    fn expand(self, head: usize) -> Self::Larger;
+    fn slice_mut(&mut self) -> &mut [Ix];
+    fn get_iter(&self) -> Iter<'_, Ix>;
     fn shape(&self) -> &[Ix];
     fn slice(&self) -> &[Ix];
-    fn slice_mut(&mut self) -> &mut [Ix];
-    fn rev(&self) -> Self;
     fn count(&self) -> usize;
-    fn into_dimensionality<D2>(&self) -> D2
-    where
-        D2: Dimension;
-    fn get_iter(&self) -> Iter<'_, Ix>;
-    fn ones() -> Self;
+    fn ndim(&self) -> usize;
+    fn rev(&self) -> Self;
     fn zeros() -> Self;
+    fn ones() -> Self;
 }
 
 macro_rules! impl_dimension {
@@ -76,6 +75,15 @@ macro_rules! impl_dimension {
                 let mut a = self.clone();
                 a.reverse();
                 a
+            }
+            fn expand(self, head: usize) -> Self::Larger {
+                let mut larger = Self::Larger::zeros();
+                let mut dim_iter = larger.slice_mut().iter_mut();
+                *dim_iter.next().unwrap() = head;
+                for (i, j) in dim_iter.zip(self.slice().iter()) {
+                    *i = *j;
+                }
+                larger
             }
         }
     };
@@ -318,3 +326,14 @@ impl_broadcast_distinct_fixed!(Ix3, Ix6);
 impl_broadcast_distinct_fixed!(Ix4, Ix5);
 impl_broadcast_distinct_fixed!(Ix4, Ix6);
 impl_broadcast_distinct_fixed!(Ix5, Ix6);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn expand_dimensions() {
+        let a = [3, 4, 5];
+        let b = a.expand(10);
+        assert_eq!(b, [10, 3, 4, 5]);
+    }
+}

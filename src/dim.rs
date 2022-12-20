@@ -28,12 +28,13 @@ pub trait ShapePattern
 {
     type IOutput;
     type UOutput;
+
     fn ipattern(&self) -> Self::IOutput;
     fn upattern(&self) -> Self::UOutput;
 }
 
 pub trait Dimension:
-    Clone + Eq + Index<usize, Output = Ix> + IndexMut<usize, Output = Ix> + Debug
+    Clone + Eq + Index<usize, Output = Ix> + IndexMut<usize, Output = Ix> + Debug + ShapePattern
 {
     const NDIM: usize;
     type Smaller: Dimension;
@@ -60,53 +61,81 @@ macro_rules! impl_dimension {
             type Larger = $larger;
             type Smaller = $smaller;
 
-            fn ndim(&self) -> usize {
-                $ndim
+            fn ndim(&self) -> usize { $ndim }
+            fn shape(&self) -> &[Ix] { &self[..] }
+            fn slice(&self) -> &[Ix] { &self[..] }
+            fn slice_mut(&mut self) -> &mut [Ix] { &mut self[..] }
+            fn get_iter(&self) -> Iter<'_, Ix> { self.iter() }
+            fn ones() -> Self { [1; $ndim] }
+            fn zeros() -> Self { [0; $ndim] }
+            fn count(&self) -> usize { self.get_iter().fold(1, |acc, val| acc * *val) }
+            fn into_dimensionality<D2>(&self) -> D2 where D2: Dimension {
+                unsafe { unlimited_transmute::<Self, D2>(self.clone()) }
             }
-
-            fn shape(&self) -> &[Ix] {
-                &self[..]
-            }
-
-            fn slice(&self) -> &[Ix] {
-                &self[..]
-            }
-
-            fn slice_mut(&mut self) -> &mut [Ix] {
-                &mut self[..]
-            }
-
             fn rev(&self) -> Self {
                 let mut a = self.clone();
                 a.reverse();
                 a
             }
-
-            fn count(&self) -> usize {
-                self.get_iter().fold(1, |acc, val| acc * *val)
-            }
-
-            fn into_dimensionality<D2>(&self) -> D2
-            where
-                D2: Dimension,
-            {
-                unsafe { unlimited_transmute::<Self, D2>(self.clone()) }
-            }
-
-            fn get_iter(&self) -> Iter<'_, Ix> {
-                self.iter()
-            }
-
-            fn ones() -> Self {
-                [1; $ndim]
-            }
-
-            fn zeros() -> Self {
-                [0; $ndim]
-            }
         }
     };
 }
+
+pub trait IntoDimension {
+    type Dim: Dimension;
+    fn into_dimension(self) -> Self::Dim;
+}
+
+impl IntoDimension for () {
+    type Dim = [usize; 0];
+    fn into_dimension(self) -> Self::Dim { [] }
+}
+impl IntoDimension for usize {
+    type Dim = [usize; 1];
+    fn into_dimension(self) -> Self::Dim { [self] }
+}
+impl IntoDimension for (usize, usize) {
+    type Dim = [usize; 2];
+    fn into_dimension(self) -> Self::Dim { [self.0, self.1] }
+}
+impl IntoDimension for (usize, usize, usize) {
+    type Dim = [usize; 3];
+    fn into_dimension(self) -> Self::Dim { [self.0, self.1, self.2] }
+}
+impl IntoDimension for (usize, usize, usize, usize) {
+    type Dim = [usize; 4];
+    fn into_dimension(self) -> Self::Dim { [self.0, self.1, self.2, self.3] }
+}
+impl IntoDimension for (usize, usize, usize, usize, usize) {
+    type Dim = [usize; 5];
+    fn into_dimension(self) -> Self::Dim { [self.0, self.1, self.2, self.3, self.4] }
+}
+impl IntoDimension for (usize, usize, usize, usize, usize, usize) {
+    type Dim = [usize; 6];
+    fn into_dimension(self) -> Self::Dim { [self.0, self.1, self.2, self.3, self.4, self.5] }
+}
+impl IntoDimension for (usize, usize, usize, usize, usize, usize, usize) {
+    type Dim = [usize; 7];
+    fn into_dimension(self) -> Self::Dim { [self.0, self.1, self.2, self.3, self.4, self.5, self.6] }
+}
+
+macro_rules! impl_into_dimension {
+    ($type: ty) => {
+        impl IntoDimension for $type {
+            type Dim = Self;
+            fn into_dimension(self) -> Self::Dim { self }
+        }
+    }
+}
+
+impl_into_dimension!(Ix0);
+impl_into_dimension!(Ix1);
+impl_into_dimension!(Ix2);
+impl_into_dimension!(Ix3);
+impl_into_dimension!(Ix4);
+impl_into_dimension!(Ix5);
+impl_into_dimension!(Ix6);
+impl_into_dimension!(Ix7);
 
 impl ShapePattern for [Ix; 0] {
     type IOutput = ();
@@ -214,6 +243,27 @@ impl ShapePattern for [Ix; 6] {
 
     fn upattern(&self) -> Self::UOutput {
         (self[0], self[1], self[2], self[3], self[4], self[5])
+    }
+}
+
+impl ShapePattern for [Ix; 7] {
+    type IOutput = (isize, isize, isize, isize, isize, isize, isize);
+    type UOutput = (Ix, Ix, Ix, Ix, Ix, Ix, Ix);
+
+    fn ipattern(&self) -> Self::IOutput {
+        (
+            self[0] as isize,
+            self[1] as isize,
+            self[2] as isize,
+            self[3] as isize,
+            self[4] as isize,
+            self[5] as isize,
+            self[6] as isize,
+        )
+    }
+
+    fn upattern(&self) -> Self::UOutput {
+        (self[0], self[1], self[2], self[3], self[4], self[5], self[6])
     }
 }
 

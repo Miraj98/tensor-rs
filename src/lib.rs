@@ -18,7 +18,6 @@ pub mod mnist;
 use std::{
     cell::RefCell,
     fmt::Debug,
-    marker::PhantomData,
     ops::{Add, AddAssign, Div, Mul, MulAssign, Sub, SubAssign},
     ptr::NonNull,
     rc::Rc,
@@ -55,8 +54,8 @@ where
 }
 
 pub type Tensor<S, Dtype = f32> = TensorBase<S, OwnedData<Dtype>>;
-pub type TensorView<'a, S, E> = TensorBase<S, ViewData<&'a E>>;
-pub type TensorViewMut<'a, S, E> = TensorBase<S, ViewData<&'a mut E>>;
+pub type TensorView<S, E> = TensorBase<S, ViewData<E>>;
+pub type TensorViewMut<S, E> = TensorBase<S, ViewMutData<E>>;
 
 #[derive(Debug)]
 pub struct OwnedData<E>
@@ -71,6 +70,9 @@ where
     E: DataElement,
 {
     type Item = E;
+    fn data(&self) -> Rc<Vec<Self::Item>> {
+        Rc::clone(&self.data)
+    }
 }
 
 impl<E: DataElement> OwnedData<E> {
@@ -94,34 +96,55 @@ impl<E: DataElement> Clone for OwnedData<E> {
 }
 
 #[derive(Debug)]
-pub struct ViewData<E> {
-    marker: PhantomData<E>,
+pub struct ViewData<E> where E: DataElement {
+    _view: Rc<Vec<E>>
 }
 
-impl<E> Clone for ViewData<E> {
+impl<E> Clone for ViewData<E> where E: DataElement {
     fn clone(&self) -> Self {
         ViewData {
-            marker: PhantomData::<E>,
+            _view: Rc::clone(&self._view),
         }
     }
 }
 
-impl<E> DataBuffer for ViewData<&E>
+impl<E> DataBuffer for ViewData<E>
 where
     E: DataElement,
 {
     type Item = E;
+    fn data(&self) -> Rc<Vec<Self::Item>> {
+        Rc::clone(&self._view)
+    }
 }
 
-impl<E> DataBuffer for ViewData<&mut E>
+#[derive(Debug)]
+pub struct ViewMutData<E> where E: DataElement {
+    _view: Rc<Vec<E>>
+}
+
+impl<E> Clone for ViewMutData<E> where E: DataElement {
+    fn clone(&self) -> Self {
+        ViewMutData {
+            _view: Rc::clone(&self._view),
+        }
+    }
+}
+
+impl<E> DataBuffer for ViewMutData<E>
 where
     E: DataElement,
 {
     type Item = E;
+
+    fn data(&self) -> Rc<Vec<Self::Item>> {
+        Rc::clone(&self._view)
+    }
 }
 
 pub trait DataBuffer: Clone {
     type Item: DataElement;
+    fn data(&self) -> Rc<Vec<Self::Item>>;
 }
 
 pub trait DataElement:

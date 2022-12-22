@@ -6,7 +6,7 @@ use crate::{
     unique_id::unique_id,
     utils::{generate_strides, nd_index, unlimited_transmute, vec_ptr_offset},
     DataBuffer, DataElement, OwnedData, Tensor, TensorBase, TensorView, TensorViewMut, UniqueId,
-    ViewData,
+    ViewData, ViewMutData
 };
 
 impl<S, Dtype> Tensor<S, Dtype>
@@ -118,7 +118,7 @@ where
         }
     }
 
-    pub fn outer_dim(&self, i: usize) -> TensorView<'_, S::Smaller, A::Item> {
+    pub fn outer_dim(&self, i: usize) -> TensorView<S::Smaller, A::Item> {
         assert!(i < self.dim[0]);
         let mut ptr = self.ptr.as_ptr();
         unsafe { ptr = ptr.offset(i as isize * self.strides[0] as isize) };
@@ -135,15 +135,13 @@ where
             strides,
             is_leaf: self.is_leaf,
             ptr: NonNull::new(ptr).unwrap(),
-            data: ViewData {
-                marker: std::marker::PhantomData,
-            },
+            data: ViewData { _view: self.data.data() },
             backward_ops: RefCell::new(None),
             requires_grad: self.requires_grad,
         }
     }
 
-    pub fn slice_2d(&self, dx: Range<usize>, dy: Range<usize>) -> TensorView<'_, S, A::Item> {
+    pub fn slice_2d(&self, dx: Range<usize>, dy: Range<usize>) -> TensorView<S, A::Item> {
         assert!(self.ndim() >= 2);
         let n = self.ndim();
         let mut out_dim = self.dim();
@@ -167,7 +165,7 @@ where
         &mut self,
         dx: Range<usize>,
         dy: Range<usize>,
-    ) -> TensorViewMut<'_, S, A::Item> {
+    ) -> TensorViewMut<S, A::Item> {
         assert!(self.ndim() >= 2);
         let n = self.ndim();
         let mut out_dim = self.dim();
@@ -242,11 +240,11 @@ where
         &self,
         ptr: NonNull<A::Item>,
         dim: S,
-    ) -> TensorView<'_, S, A::Item> {
+    ) -> TensorView<S, A::Item> {
         TensorBase {
             id: self.id,
             data: ViewData {
-                marker: std::marker::PhantomData::<&A::Item>,
+                _view: self.data.data()
             },
             ptr,
             dim,
@@ -261,12 +259,10 @@ where
         &mut self,
         ptr: NonNull<A::Item>,
         dim: S,
-    ) -> TensorViewMut<'_, S, A::Item> {
+    ) -> TensorViewMut<S, A::Item> {
         TensorBase {
             id: self.id,
-            data: ViewData {
-                marker: std::marker::PhantomData::<&mut A::Item>,
-            },
+            data: ViewMutData { _view: self.data.data() },
             ptr,
             dim,
             strides: self.strides.clone(),
@@ -276,11 +272,11 @@ where
         }
     }
 
-    pub fn view(&self) -> TensorView<'_, S, A::Item> {
+    pub fn view(&self) -> TensorView<S, A::Item> {
         TensorBase {
             id: self.id,
             data: ViewData {
-                marker: std::marker::PhantomData::<&A::Item>,
+                _view: self.data.data()
             },
             ptr: self.ptr,
             dim: self.dim.clone(),
@@ -291,11 +287,11 @@ where
         }
     }
 
-    pub fn view_mut(&self) -> TensorViewMut<'_, S, A::Item> {
+    pub fn view_mut(&self) -> TensorViewMut<S, A::Item> {
         TensorBase {
             id: self.id,
-            data: ViewData {
-                marker: std::marker::PhantomData::<&mut A::Item>,
+            data: ViewMutData {
+                _view: self.data.data(),
             },
             ptr: self.ptr,
             dim: self.dim.clone(),
@@ -314,7 +310,7 @@ where
         generate_strides(&self.dim)
     }
 
-    pub fn t(&self) -> TensorView<'_, S, A::Item> {
+    pub fn t(&self) -> TensorView<S, A::Item> {
         let mut self_view = self.view();
         let strides = self.strides.rev();
         let dim = self.dim.rev();
@@ -324,7 +320,7 @@ where
         self_view
     }
 
-    pub fn reshape<S2>(&self, dim: S2) -> TensorView<'_, S2, A::Item>
+    pub fn reshape<S2>(&self, dim: S2) -> TensorView<S2, A::Item>
     where
         S2: Dimension,
     {
@@ -333,10 +329,10 @@ where
         let self_view = TensorBase {
             id: self.id,
             data: ViewData {
-                marker: std::marker::PhantomData::<&A::Item>,
+                _view: self.data.data(),
             },
             ptr: self.ptr,
-            dim: dim,
+            dim,
             strides,
             is_leaf: self.is_leaf,
             requires_grad: false,
@@ -349,7 +345,7 @@ where
         self.dim.slice()
     }
 
-    pub fn broadcast<K>(&self, dim: K) -> TensorView<'_, K, A::Item>
+    pub fn broadcast<K>(&self, dim: K) -> TensorView<K, A::Item>
     where
         K: Dimension,
     {
@@ -380,7 +376,7 @@ where
         TensorBase {
             id: self.id,
             data: ViewData {
-                marker: std::marker::PhantomData,
+                _view: self.data.data(),
             },
             ptr: self.ptr,
             dim,

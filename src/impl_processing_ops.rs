@@ -6,15 +6,49 @@ use crate::{
 };
 use matrixmultiply::sgemm;
 
-impl<A> Matmul<TensorBase<Ix2, A>> for TensorBase<Ix2, A>
+impl<A, B> Matmul<&TensorBase<Ix2, B>> for TensorBase<Ix2, A>
 where
     A: DataBuffer<Item = f32> + 'static,
+    B: DataBuffer<Item = f32> + 'static
 {
     type Output = Tensor<Ix2, f32>;
 
-    fn matmul(&self, rhs: &TensorBase<Ix2, A>) -> Self::Output {
+    fn matmul(&self, rhs: &TensorBase<Ix2, B>) -> Self::Output {
         let mut backops = merge_backward_ops(self, rhs);
         let out = self.dot(rhs);
+        let out_id = out.id;
+        let lhs_clone = self.clone();
+        let rhs_clone = rhs.clone();
+        if backops.is_some() {
+            backops.as_mut().unwrap().add_backward_op(move |grad| {
+                let (grad_lhs, grad_rhs, grad_out): (
+                    &mut Tensor<_, f32>,
+                    &mut Tensor<_, f32>,
+                    &Tensor<Ix2, f32>,
+                ) = grad.mmr_grad(
+                    (lhs_clone.id, lhs_clone.dim()),
+                    (rhs_clone.id, rhs_clone.dim()),
+                    out_id,
+                );
+                *grad_lhs += grad_out.dot(&rhs_clone.t());
+                *grad_rhs += &lhs_clone.t().dot(grad_out);
+            });
+            out.put_backward_ops(backops);
+        }
+        out
+    }
+}
+
+impl<A, B> Matmul<TensorBase<Ix2, B>> for TensorBase<Ix2, A>
+where
+    A: DataBuffer<Item = f32> + 'static,
+    B: DataBuffer<Item = f32> + 'static
+{
+    type Output = Tensor<Ix2, f32>;
+
+    fn matmul(&self, rhs: TensorBase<Ix2, B>) -> Self::Output {
+        let mut backops = merge_backward_ops(self, &rhs);
+        let out = self.dot(&rhs);
         let out_id = out.id;
         let lhs_clone = self.clone();
         let rhs_clone = rhs.clone();
@@ -134,7 +168,7 @@ where
 }
 pub trait Matmul<Rhs> {
     type Output;
-    fn matmul(&self, rhs: &Rhs) -> Self::Output;
+    fn matmul(&self, rhs: Rhs) -> Self::Output;
 }
 
 pub trait Conv2d<Rhs> {
@@ -297,6 +331,18 @@ mod tests {
         assert!(b.backward_ops.borrow().is_none());
 
         let c = a.matmul(&b);
+
+        assert_eq!(c, tensor([[2., 2.], [2., 2.]]));
+        assert!(c.backward_ops.borrow().is_none());
+    }
+
+    #[test]
+    fn matmul_with_tensor_view() {
+        let a = Tensor::ones([2, 2]);
+        let b = Tensor::ones([2, 2]);
+        let b_view = b.view();
+
+        let c = a.matmul(b_view);
 
         assert_eq!(c, tensor([[2., 2.], [2., 2.]]));
         assert!(c.backward_ops.borrow().is_none());

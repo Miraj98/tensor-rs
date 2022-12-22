@@ -444,8 +444,8 @@ macro_rules! impl_binary_ops_with_broadcast {
                 let r = $rhs.into_dimensionality::<DimMaxOf<L, R>>();
                 out = l $symbol r;
             } else {
-                let v1: TensorView<'_, DimMaxOf<L, R>, Dtype>;
-                let v2: TensorView<'_, DimMaxOf<L, R>, Dtype>;
+                let v1: TensorView<DimMaxOf<L, R>, Dtype>;
+                let v2: TensorView<DimMaxOf<L, R>, Dtype>;
                 let dim: DimMaxOf<L, R>;
                 if $lhs.ndim() >= $rhs.ndim() {
                     dim = $lhs.dim().into_dimensionality::<DimMaxOf<L, R>>();

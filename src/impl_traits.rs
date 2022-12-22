@@ -108,13 +108,13 @@ where
     }
 }
 
-impl<'a, S, S2, A> PartialEq<TensorView<'a, S2, A>> for Tensor<S, A>
+impl<S, S2, A> PartialEq<TensorView<S2, A>> for Tensor<S, A>
 where
     S: Dimension,
     S2: Dimension,
     A: DataElement,
 {
-    fn eq(&self, other: &TensorView<'a, S2, A>) -> bool {
+    fn eq(&self, other: &TensorView<S2, A>) -> bool {
         println!("eq being called");
         if self.shape() != other.shape() {
             println!(
@@ -145,13 +145,13 @@ where
     }
 }
 
-impl<'a, S, S2, A> PartialEq<TensorView<'a, S2, A>> for TensorView<'a, S, A>
+impl<S, S2, A> PartialEq<TensorView<S2, A>> for TensorView<S, A>
 where
     S: Dimension,
     S2: Dimension,
     A: DataElement,
 {
-    fn eq(&self, other: &TensorView<'a, S2, A>) -> bool {
+    fn eq(&self, other: &TensorView<S2, A>) -> bool {
         if self.shape() != other.shape() {
             return false;
         }
@@ -176,7 +176,7 @@ where
     }
 }
 
-impl<'a, S, S2, A> PartialEq<Tensor<S2, A>> for TensorView<'a, S, A>
+impl<S, S2, A> PartialEq<Tensor<S2, A>> for TensorView<S, A>
 where
     S: Dimension,
     S2: Dimension,

@@ -31,11 +31,6 @@ where
         }
     }
 
-    // pub fn from_elem(a: Dtype, dim: S) -> Tensor<S, Dtype> {
-    //     let vec = vec![a; dim.count()];
-    //     Tensor::from_vec(vec, dim)
-    // }
-
     pub fn requires_grad(mut self, b: bool) -> Self {
         self.requires_grad = b;
         if b && self.is_leaf && self.backward_ops.borrow().is_none() {

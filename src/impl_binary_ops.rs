@@ -602,6 +602,7 @@ where
                 *g += local_grad;
             });
         }
+        out.put_backward_ops(backops);
         out
     }
 }
@@ -626,6 +627,7 @@ where
                 *g += local_grad;
             });
         }
+        out.put_backward_ops(backops);
         out
     }
 }

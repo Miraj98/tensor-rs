@@ -54,8 +54,8 @@ where
 }
 
 pub type Tensor<S, Dtype = f32> = TensorBase<S, OwnedData<Dtype>>;
-pub type TensorView<S, E> = TensorBase<S, ViewData<E>>;
-pub type TensorViewMut<S, E> = TensorBase<S, ViewMutData<E>>;
+pub type TensorView<S, E = f32> = TensorBase<S, ViewData<E>>;
+pub type TensorViewMut<S, E = f32> = TensorBase<S, ViewMutData<E>>;
 
 #[derive(Debug)]
 pub struct OwnedData<E>

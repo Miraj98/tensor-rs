@@ -31,6 +31,11 @@ where
         }
     }
 
+    // pub fn from_elem(a: Dtype, dim: S) -> Tensor<S, Dtype> {
+    //     let vec = vec![a; dim.count()];
+    //     Tensor::from_vec(vec, dim)
+    // }
+
     pub fn requires_grad(mut self, b: bool) -> Self {
         self.requires_grad = b;
         if b && self.is_leaf && self.backward_ops.borrow().is_none() {
@@ -387,11 +392,15 @@ where
         }
     }
 
-    pub(crate) fn detach_backward_ops(&self) -> Option<BackwardOps> {
-        self.backward_ops.borrow_mut().take()
+    pub fn detach_backward_ops(&self) -> Option<BackwardOps> {
+        let ret = self.backward_ops.borrow_mut().take();
+        if self.requires_grad {
+            *self.backward_ops.borrow_mut() = Some(BackwardOps::new());
+        }
+        ret
     }
 
-    pub(crate) fn put_backward_ops(&self, backops: Option<BackwardOps>) {
+    pub fn put_backward_ops(&self, backops: Option<BackwardOps>) {
         *self.backward_ops.borrow_mut() = backops;
     }
 }

@@ -2,6 +2,7 @@ use crate::{
     dim::{DimMax, DimMaxOf, Dimension},
     utils::{merge_backward_ops, nd_index, reduced_grad, vec_ptr_offset},
     DataBuffer, DataElement, Tensor, TensorBase, TensorView,
+    impl_constructors::TensorConstructors,
 };
 use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Sub, SubAssign};
 
@@ -175,24 +176,24 @@ macro_rules! impl_binary_ops {
 
             #[inline]
             fn $math(self, rhs: &TensorBase<S, A>) -> Self::Output {
-                if rhs.is_standard_layout() {
-                    let mut out_vec = Vec::with_capacity(rhs.len());
-                    unsafe {
-                        let ptr = rhs.ptr.as_ptr();
-                        for i in 0..rhs.len() {
-                            out_vec.push(ptr.add(i).read().$math(self));
-                        }
-                    }
-                    Tensor::from_vec(out_vec, rhs.dim.clone()).leaf(false)
-                } else {
-                    let strides = rhs.default_strides();
-                    let mut out_vec = Vec::with_capacity(rhs.len());
-                    for i in 0..rhs.len() {
-                        let idx = nd_index(i, &strides);
-                        out_vec.push(rhs[idx].$math(self));
-                    }
-                    Tensor::from_vec(out_vec, rhs.dim.clone()).leaf(false)
-                }
+                 if rhs.is_standard_layout() {
+                     let mut out_vec = Vec::with_capacity(rhs.len());
+                     unsafe {
+                         let ptr = rhs.ptr.as_ptr();
+                         for i in 0..rhs.len() {
+                             out_vec.push(ptr.add(i).read().$math(self));
+                         }
+                     }
+                     Tensor::from_vec(out_vec, rhs.dim.clone()).leaf(false)
+                 } else {
+                     let strides = rhs.default_strides();
+                     let mut out_vec = Vec::with_capacity(rhs.len());
+                     for i in 0..rhs.len() {
+                         let idx = nd_index(i, &strides);
+                         out_vec.push(rhs[idx].$math(self));
+                     }
+                     Tensor::from_vec(out_vec, rhs.dim.clone()).leaf(false)
+                 }
             }
         }
 
@@ -205,24 +206,24 @@ macro_rules! impl_binary_ops {
 
             #[inline]
             fn $math(self, rhs: &TensorBase<S, A>) -> Self::Output {
-                if rhs.is_standard_layout() {
-                    let mut out_vec = Vec::with_capacity(rhs.len());
-                    unsafe {
-                        let ptr = rhs.ptr.as_ptr();
-                        for i in 0..rhs.len() {
-                            out_vec.push(ptr.add(i).read().$math(self));
-                        }
-                    }
-                    Tensor::from_vec(out_vec, rhs.dim.clone()).leaf(false)
-                } else {
-                    let strides = rhs.default_strides();
-                    let mut out_vec = Vec::with_capacity(rhs.len());
-                    for i in 0..rhs.len() {
-                        let idx = nd_index(i, &strides);
-                        out_vec.push(rhs[idx].$math(self));
-                    }
-                    Tensor::from_vec(out_vec, rhs.dim.clone()).leaf(false)
-                }
+                 if rhs.is_standard_layout() {
+                     let mut out_vec = Vec::with_capacity(rhs.len());
+                     unsafe {
+                         let ptr = rhs.ptr.as_ptr();
+                         for i in 0..rhs.len() {
+                             out_vec.push(ptr.add(i).read().$math(self));
+                         }
+                     }
+                     Tensor::from_vec(out_vec, rhs.dim.clone()).leaf(false)
+                 } else {
+                     let strides = rhs.default_strides();
+                     let mut out_vec = Vec::with_capacity(rhs.len());
+                     for i in 0..rhs.len() {
+                         let idx = nd_index(i, &strides);
+                         out_vec.push(rhs[idx].$math(self));
+                     }
+                     Tensor::from_vec(out_vec, rhs.dim.clone()).leaf(false)
+                 }
             }
         }
 
@@ -235,24 +236,24 @@ macro_rules! impl_binary_ops {
 
             #[inline]
             fn $math(self, rhs: f64) -> Self::Output {
-                if self.is_standard_layout() {
-                    let mut out_vec = Vec::with_capacity(self.len());
-                    unsafe {
-                        let ptr = self.ptr.as_ptr();
-                        for i in 0..self.len() {
-                            out_vec.push(ptr.add(i).read().$math(rhs));
-                        }
-                    }
-                    Tensor::from_vec(out_vec, self.dim.clone()).leaf(false)
-                } else {
-                    let strides = self.default_strides();
-                    let mut out_vec = Vec::with_capacity(self.len());
-                    for i in 0..self.len() {
-                        let idx = nd_index(i, &strides);
-                        out_vec.push(self[idx].$math(rhs));
-                    }
-                    Tensor::from_vec(out_vec, self.dim.clone()).leaf(false)
-                }
+                 if self.is_standard_layout() {
+                     let mut out_vec = Vec::with_capacity(self.len());
+                     unsafe {
+                         let ptr = self.ptr.as_ptr();
+                         for i in 0..self.len() {
+                             out_vec.push(ptr.add(i).read().$math(rhs));
+                         }
+                     }
+                     Tensor::from_vec(out_vec, self.dim.clone()).leaf(false)
+                 } else {
+                     let strides = self.default_strides();
+                     let mut out_vec = Vec::with_capacity(self.len());
+                     for i in 0..self.len() {
+                         let idx = nd_index(i, &strides);
+                         out_vec.push(self[idx].$math(rhs));
+                     }
+                     Tensor::from_vec(out_vec, self.dim.clone()).leaf(false)
+                 }
             }
         }
 
@@ -265,24 +266,24 @@ macro_rules! impl_binary_ops {
 
             #[inline]
             fn $math(self, rhs: f32) -> Self::Output {
-                if self.is_standard_layout() {
-                    let mut out_vec = Vec::with_capacity(self.len());
-                    unsafe {
-                        let ptr = self.ptr.as_ptr();
-                        for i in 0..self.len() {
-                            out_vec.push(ptr.add(i).read().$math(rhs));
-                        }
-                    }
-                    Tensor::from_vec(out_vec, self.dim.clone()).leaf(false)
-                } else {
-                    let strides = self.default_strides();
-                    let mut out_vec = Vec::with_capacity(self.len());
-                    for i in 0..self.len() {
-                        let idx = nd_index(i, &strides);
-                        out_vec.push(self[idx].$math(rhs));
-                    }
-                    Tensor::from_vec(out_vec, self.dim.clone()).leaf(false)
-                }
+                 if self.is_standard_layout() {
+                     let mut out_vec = Vec::with_capacity(self.len());
+                     unsafe {
+                         let ptr = self.ptr.as_ptr();
+                         for i in 0..self.len() {
+                             out_vec.push(ptr.add(i).read().$math(rhs));
+                         }
+                     }
+                     Tensor::from_vec(out_vec, self.dim.clone()).leaf(false)
+                 } else {
+                     let strides = self.default_strides();
+                     let mut out_vec = Vec::with_capacity(self.len());
+                     for i in 0..self.len() {
+                         let idx = nd_index(i, &strides);
+                         out_vec.push(self[idx].$math(rhs));
+                     }
+                     Tensor::from_vec(out_vec, self.dim.clone()).leaf(false)
+                 }
             }
         }
 
@@ -295,24 +296,24 @@ macro_rules! impl_binary_ops {
 
             #[inline]
             fn $math(self, rhs: f64) -> Self::Output {
-                if self.is_standard_layout() {
-                    let mut out_vec = Vec::with_capacity(self.len());
-                    unsafe {
-                        let ptr = self.ptr.as_ptr();
-                        for i in 0..self.len() {
-                            out_vec.push(ptr.add(i).read().$math(rhs));
-                        }
-                    }
-                    Tensor::from_vec(out_vec, self.dim.clone()).leaf(false)
-                } else {
-                    let strides = self.default_strides();
-                    let mut out_vec = Vec::with_capacity(self.len());
-                    for i in 0..self.len() {
-                        let idx = nd_index(i, &strides);
-                        out_vec.push(self[idx].$math(rhs));
-                    }
-                    Tensor::from_vec(out_vec, self.dim.clone()).leaf(false)
-                }
+                 if self.is_standard_layout() {
+                     let mut out_vec = Vec::with_capacity(self.len());
+                     unsafe {
+                         let ptr = self.ptr.as_ptr();
+                         for i in 0..self.len() {
+                             out_vec.push(ptr.add(i).read().$math(rhs));
+                         }
+                     }
+                     Tensor::from_vec(out_vec, self.dim.clone()).leaf(false)
+                 } else {
+                     let strides = self.default_strides();
+                     let mut out_vec = Vec::with_capacity(self.len());
+                     for i in 0..self.len() {
+                         let idx = nd_index(i, &strides);
+                         out_vec.push(self[idx].$math(rhs));
+                     }
+                     Tensor::from_vec(out_vec, self.dim.clone()).leaf(false)
+                 }
             }
         }
     };
@@ -468,15 +469,22 @@ pub trait TensorBinaryOps<Rhs> {
     fn mul(&self, rhs: &Rhs) -> Self::Output;
 }
 
-impl<L, R, Dtype> TensorBinaryOps<Tensor<R, Dtype>> for Tensor<L, Dtype>
+pub trait TensorBinaryScalarOps<Rhs> where Rhs: DataElement {
+    type Output;
+    fn mul_scalar(&self, rhs: Rhs) -> Self::Output;
+}
+
+impl<L, R, Dtype, A, B> TensorBinaryOps<TensorBase<R, A>> for TensorBase<L, B>
 where
     R: Dimension + 'static,
     L: Dimension + DimMax<R> + 'static,
     Dtype: DataElement + 'static,
+    A: DataBuffer<Item = Dtype> + 'static,
+    B: DataBuffer<Item = Dtype> + 'static
 {
     type Output = Tensor<DimMaxOf<L, R>, Dtype>;
 
-    fn add(&self, rhs: &Tensor<R, Dtype>) -> Self::Output {
+    fn add(&self, rhs: &TensorBase<R, A>) -> Self::Output {
         let (out, mut backops) = impl_binary_ops_with_broadcast!(self, rhs, +);
         let o_id = out.id;
 
@@ -506,7 +514,7 @@ where
         out
     }
 
-    fn sub(&self, rhs: &Tensor<R, Dtype>) -> Self::Output {
+    fn sub(&self, rhs: &TensorBase<R, A>) -> Self::Output {
         let (out, mut backops) = impl_binary_ops_with_broadcast!(self, rhs, -);
         let o_id = out.id;
 
@@ -535,7 +543,7 @@ where
         out
     }
 
-    fn mul(&self, rhs: &Tensor<R, Dtype>) -> Self::Output {
+    fn mul(&self, rhs: &TensorBase<R, A>) -> Self::Output {
         let (out, mut backops) = impl_binary_ops_with_broadcast!(self, rhs, *);
         let o_id = out.id;
 
@@ -574,9 +582,59 @@ where
     }
 }
 
+impl<L, B> TensorBinaryScalarOps<f32> for TensorBase<L, B>
+where
+    L: Dimension + 'static,
+    B: DataBuffer<Item = f32> + 'static
+{
+    type Output = Tensor<L, f32>;
+    fn mul_scalar(&self, rhs: f32) -> Self::Output {
+        let mut backops = self.detach_backward_ops();
+        let out = self * rhs;
+        if backops.is_some() {
+            let self_dim = self.dim();
+            let self_id = self.id;
+            let out_id = out.id;
+            backops.as_mut().unwrap().add_backward_op(move |grad| {
+                let (g, incoming_grad) = grad.mr_grad((self_id, self_dim.clone()), out_id);
+                let mut local_grad = Tensor::from_elem(self_dim, rhs);
+                local_grad += incoming_grad;
+                *g += local_grad;
+            });
+        }
+        out
+    }
+}
+
+impl<L, B> TensorBinaryScalarOps<f64> for TensorBase<L, B>
+where
+    L: Dimension + 'static,
+    B: DataBuffer<Item = f64> + 'static
+{
+    type Output = Tensor<L, f64>;
+    fn mul_scalar(&self, rhs: f64) -> Self::Output {
+        let mut backops = self.detach_backward_ops();
+        let out = self * rhs;
+        if backops.is_some() {
+            let self_dim = self.dim();
+            let self_id = self.id;
+            let out_id = out.id;
+            backops.as_mut().unwrap().add_backward_op(move |grad| {
+                let (g, incoming_grad) = grad.mr_grad((self_id, self_dim.clone()), out_id);
+                let mut local_grad = Tensor::from_elem(self_dim, rhs);
+                local_grad += incoming_grad;
+                *g += local_grad;
+            });
+        }
+        out
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::impl_constructors::tensor;
+    use crate::impl_reduce_ops::ReduceOps;
+    use super::*;
 
     #[test]
     fn div_assign() {
@@ -585,5 +643,17 @@ mod tests {
 
         a *= 1. / b;
         assert_eq!(a, tensor([[1., 1.], [1., 1.]]));
+    }
+
+    #[test]
+    fn mul_scalar() {
+        let a = tensor([[5., 5.], [5., 5.]]).requires_grad(true);
+        let b = 2. as f32;
+
+        let c = a.mul_scalar(b);
+        let d = c.sum();
+        let g = d.backward();
+        assert_eq!(c, tensor([[10., 10.], [10., 10.]]));
+        assert_eq!(tensor([[2., 2.], [2., 2.]]), g.grad(&a));
     }
 }

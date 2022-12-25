@@ -35,6 +35,8 @@ where
         self.requires_grad = b;
         if b && self.is_leaf && self.backward_ops.borrow().is_none() {
             *self.backward_ops.borrow_mut() = Some(BackwardOps(Vec::new()));
+        } else if !b && self.is_leaf && self.backward_ops.borrow().is_some() {
+           let _ = self.detach_backward_ops(); 
         }
 
         self
@@ -389,9 +391,6 @@ where
 
     pub fn detach_backward_ops(&self) -> Option<BackwardOps> {
         let ret = self.backward_ops.borrow_mut().take();
-        if self.requires_grad {
-            *self.backward_ops.borrow_mut() = Some(BackwardOps::new());
-        }
         ret
     }
 

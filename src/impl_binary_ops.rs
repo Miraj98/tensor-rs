@@ -598,7 +598,7 @@ where
             backops.as_mut().unwrap().add_backward_op(move |grad| {
                 let (g, incoming_grad) = grad.mr_grad((self_id, self_dim.clone()), out_id);
                 let mut local_grad = Tensor::from_elem(self_dim, rhs);
-                local_grad += incoming_grad;
+                local_grad *= incoming_grad;
                 *g += local_grad;
             });
         }
@@ -623,7 +623,7 @@ where
             backops.as_mut().unwrap().add_backward_op(move |grad| {
                 let (g, incoming_grad) = grad.mr_grad((self_id, self_dim.clone()), out_id);
                 let mut local_grad = Tensor::from_elem(self_dim, rhs);
-                local_grad += incoming_grad;
+                local_grad *= incoming_grad;
                 *g += local_grad;
             });
         }

@@ -397,6 +397,10 @@ where
     pub fn put_backward_ops(&self, backops: Option<BackwardOps>) {
         *self.backward_ops.borrow_mut() = backops;
     }
+
+    pub fn max(&self) -> (usize, A::Item) {
+        todo!()
+    }
 }
 
 impl<A> TensorBase<Ix0, A>

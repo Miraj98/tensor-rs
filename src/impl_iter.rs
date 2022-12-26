@@ -38,9 +38,24 @@ where
                 return val;
             } else if self.current_dim > 0 {
                 self.current_dim -= 1;
+                self.nd_index = S::zeros();
+                self.nd_index[self.current_dim] += 1;
             } else {
                 return None;
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::impl_constructors::tensor;
+
+    #[test]
+    fn iter_tensor() {
+        let a = tensor([[1., 2.], [3., 4.]]);
+        for (i, val) in a.into_iter().enumerate() {
+            assert_eq!(val, (i + 1) as f32);
         }
     }
 }
